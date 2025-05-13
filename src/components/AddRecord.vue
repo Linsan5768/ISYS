@@ -1,0 +1,1231 @@
+<template>
+  <div class="container">
+    <div class="form-card">
+      <div class="back-arrow" @click="goBack">
+        <span class="arrow-icon">←</span>
+        <span class="back-text">Back</span>
+      </div>
+
+      <h2 class="card-title">{{ isReviewMode ? 'TAX FORM REVIEW' : 'TAX FORM' }}</h2>
+      
+      <!-- 编辑模式 -->
+      <form v-if="!isReviewMode" @submit.prevent="reviewForm">
+        <div class="form-content">
+          <!-- Date and Declaration Type on the same row -->
+          <div class="form-row">
+            <div class="form-group half-width">
+              <label for="date-picker">DATE</label>
+              <div class="input-wrapper">
+                <input type="text" id="date-picker" v-model="form.date" class="form-control" ref="dateInput" required>
+              </div>
+            </div>
+
+            <div class="form-group half-width">
+              <label for="declaration-type">DECLARATION TYPE</label>
+              <div class="input-wrapper">
+                <select 
+                  id="declaration-type" 
+                  v-model="form.declarationType" 
+                  class="form-control"
+                  required
+                >
+                  <option value="">Select Declaration Type</option>
+                  <option v-for="type in declarationTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Income Type field - 只在declarationType为'income'时显示 -->
+          <div v-if="form.declarationType === 'income'" class="form-group">
+            <label for="income-type">INCOME TYPE</label>
+            <div class="input-wrapper">
+              <select 
+                id="income-type" 
+                v-model="form.incomeType" 
+                class="form-control"
+                required
+              >
+                <option value="">Select Income Type</option>
+                <option v-for="type in incomeTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Credit Type field - 只在declarationType为'credit'时显示 -->
+          <div v-if="form.declarationType === 'credit'" class="form-group">
+            <label for="credit-type">CREDIT TYPE</label>
+            <div class="input-wrapper">
+              <select 
+                id="credit-type" 
+                v-model="form.creditType" 
+                class="form-control"
+                required
+              >
+                <option value="">Select Credit Type</option>
+                <option v-for="type in creditTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Deduction Type field - 只在declarationType为'deduction'时显示 -->
+          <div v-if="form.declarationType === 'deduction'" class="form-group">
+            <label for="deduction-type">DEDUCTION TYPE</label>
+            <div class="input-wrapper">
+              <select 
+                id="deduction-type" 
+                v-model="form.deductionType" 
+                class="form-control"
+                required
+              >
+                <option value="">Select Deduction Type</option>
+                <option v-for="type in deductionTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Address field -->
+        <div class="form-group">
+            <label for="address">ADDRESS</label>
+            <div class="input-wrapper">
+              <input 
+                type="text" 
+                id="address" 
+                v-model="form.address" 
+                class="form-control"
+                required
+              />
+          </div>
+        </div>
+
+          <!-- Declaration Name field -->
+        <div class="form-group">
+            <label for="declaration-name">DECLARATION NAME</label>
+            <div class="input-wrapper">
+            <input 
+              type="text" 
+                id="declaration-name" 
+                v-model="form.declarationName" 
+                class="form-control"
+                required
+              />
+          </div>
+        </div>
+
+          <!-- Price field with formatting -->
+        <div class="form-group">
+            <label for="price">AMOUNT</label>
+            <div class="input-wrapper">
+            <input 
+              type="text" 
+                id="price" 
+                v-model="formattedPrice"
+              @focus="removeFormatting"
+                @blur="formatPrice"
+                class="form-control"
+              required
+            />
+          </div>
+        </div>
+
+          <!-- Other Information field -->
+        <div class="form-group">
+            <label for="other-info">OTHER INFORMATION</label>
+            <div class="input-wrapper">
+              <textarea 
+                id="other-info"
+                v-model="form.otherInfo"
+                class="form-control"
+                rows="3"
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit and Save buttons -->
+        <div class="button-group">
+          <button type="submit" class="btn-submit">
+            PREVIEW
+          </button>
+          <button type="button" class="btn-save" @click="saveAndExit">
+            SAVE & EXIT
+          </button>
+        </div>
+
+        <div v-if="validationError" class="error-message">
+          {{ validationError }}
+        </div>
+      </form>
+
+      <!-- 审阅模式 -->
+      <div v-else class="form-content">
+        <!-- Date and Declaration Type on the same row -->
+        <div class="form-row">
+          <div class="form-group half-width">
+            <label>DATE</label>
+            <div class="review-field" :class="{'editing': editingField === 'date'}">
+              <input 
+                v-if="editingField === 'date'" 
+                type="text" 
+                v-model="form.date"
+                class="form-control" 
+                @blur="finishEdit" 
+                ref="editInput"
+              >
+              <div v-else class="readonly-value">{{ form.date }}</div>
+              <img v-if="!isReadOnly" src="@/assets/edit-text.png" @click="editField('date')" class="edit-icon" alt="Edit">
+              </div>
+            </div>
+
+          <div class="form-group half-width">
+            <label>DECLARATION TYPE</label>
+            <div class="review-field" :class="{'editing': editingField === 'declarationType'}">
+              <select 
+                v-if="editingField === 'declarationType'" 
+                v-model="form.declarationType" 
+                class="form-control"
+                @blur="finishEdit"
+              >
+                <option v-for="type in declarationTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+              </select>
+              <div v-else class="readonly-value">
+                {{ getDeclarationTypeName(form.declarationType) }}
+              </div>
+              <img v-if="!isReadOnly" src="@/assets/edit-text.png" @click="editField('declarationType')" class="edit-icon" alt="Edit">
+            </div>
+          </div>
+        </div>
+
+        <!-- Income Type field - 只在declarationType为'income'时显示 -->
+        <div v-if="form.declarationType === 'income'" class="form-group">
+          <label>INCOME TYPE</label>
+          <div class="review-field" :class="{'editing': editingField === 'incomeType'}">
+            <select 
+              v-if="editingField === 'incomeType'" 
+              v-model="form.incomeType" 
+              class="form-control"
+              @blur="finishEdit"
+            >
+              <option v-for="type in incomeTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+            </select>
+            <div v-else class="readonly-value">
+              {{ getIncomeTypeName(form.incomeType) }}
+            </div>
+            <img v-if="!isReadOnly" src="@/assets/edit-text.png" @click="editField('incomeType')" class="edit-icon" alt="Edit">
+          </div>
+        </div>
+
+        <!-- Credit Type field - 只在declarationType为'credit'时显示 -->
+        <div v-if="form.declarationType === 'credit'" class="form-group">
+          <label>CREDIT TYPE</label>
+          <div class="review-field" :class="{'editing': editingField === 'creditType'}">
+            <select 
+              v-if="editingField === 'creditType'" 
+              v-model="form.creditType" 
+              class="form-control"
+              @blur="finishEdit"
+            >
+              <option v-for="type in creditTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+            </select>
+            <div v-else class="readonly-value">
+              {{ getCreditTypeName(form.creditType) }}
+            </div>
+            <img v-if="!isReadOnly" src="@/assets/edit-text.png" @click="editField('creditType')" class="edit-icon" alt="Edit">
+          </div>
+        </div>
+
+        <!-- Deduction Type field - 只在declarationType为'deduction'时显示 -->
+        <div v-if="form.declarationType === 'deduction'" class="form-group">
+          <label>DEDUCTION TYPE</label>
+          <div class="review-field" :class="{'editing': editingField === 'deductionType'}">
+            <select 
+              v-if="editingField === 'deductionType'" 
+              v-model="form.deductionType" 
+              class="form-control"
+              @blur="finishEdit"
+            >
+              <option v-for="type in deductionTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+            </select>
+            <div v-else class="readonly-value">
+              {{ getDeductionTypeName(form.deductionType) }}
+            </div>
+            <img v-if="!isReadOnly" src="@/assets/edit-text.png" @click="editField('deductionType')" class="edit-icon" alt="Edit">
+          </div>
+        </div>
+
+        <!-- Address field -->
+        <div class="form-group">
+          <label>ADDRESS</label>
+          <div class="review-field" :class="{'editing': editingField === 'address'}">
+            <input 
+              v-if="editingField === 'address'" 
+              type="text" 
+              v-model="form.address" 
+              class="form-control"
+              @blur="finishEdit"
+            >
+            <div v-else class="readonly-value">{{ form.address }}</div>
+            <img v-if="!isReadOnly" src="@/assets/edit-text.png" @click="editField('address')" class="edit-icon" alt="Edit">
+              </div>
+            </div>
+
+        <!-- Declaration Name field -->
+        <div class="form-group">
+          <label>DECLARATION NAME</label>
+          <div class="review-field" :class="{'editing': editingField === 'declarationName'}">
+            <input 
+              v-if="editingField === 'declarationName'" 
+              type="text" 
+              v-model="form.declarationName" 
+              class="form-control"
+              @blur="finishEdit"
+            >
+            <div v-else class="readonly-value">{{ form.declarationName }}</div>
+            <img v-if="!isReadOnly" src="@/assets/edit-text.png" @click="editField('declarationName')" class="edit-icon" alt="Edit">
+          </div>
+        </div>
+
+        <!-- Price field -->
+        <div class="form-group">
+          <label>AMOUNT</label>
+          <div class="review-field" :class="{'editing': editingField === 'price'}">
+            <input 
+              v-if="editingField === 'price'" 
+              type="text" 
+              v-model="formattedPrice" 
+              class="form-control"
+              @focus="removeFormatting"
+              @blur="formatPriceAndFinishEdit"
+            >
+            <div v-else class="readonly-value">{{ formattedPrice }}</div>
+            <img v-if="!isReadOnly" src="@/assets/edit-text.png" @click="editField('price')" class="edit-icon" alt="Edit">
+          </div>
+        </div>
+
+        <!-- Other Information field -->
+        <div class="form-group">
+          <label>OTHER INFORMATION</label>
+          <div class="review-field" :class="{'editing': editingField === 'otherInfo'}">
+            <textarea 
+              v-if="editingField === 'otherInfo'" 
+              v-model="form.otherInfo" 
+              class="form-control"
+              rows="3"
+              @blur="finishEdit"
+            ></textarea>
+            <div v-else class="readonly-value">{{ form.otherInfo || '-' }}</div>
+            <img v-if="!isReadOnly" src="@/assets/edit-text.png" @click="editField('otherInfo')" class="edit-icon" alt="Edit">
+          </div>
+        </div>
+
+        <!-- Verification checkbox - only show if not in read-only mode -->
+        <div v-if="!isReadOnly" class="verification-box">
+          <label class="verification-label">
+            <input type="checkbox" v-model="formVerified">
+            <span>I verify that all the information are correct.</span>
+          </label>
+        </div>
+
+        <!-- Submit, Back, and Return buttons -->
+        <div class="button-group">
+          <button 
+            v-if="!isReadOnly"
+            class="btn-submit" 
+            @click="submitTaxForm" 
+            :disabled="!formVerified"
+          >
+            SUBMIT
+        </button>
+          <button 
+            v-if="!isReadOnly" 
+            type="button" 
+            class="btn-save" 
+            @click="backToEdit"
+          >
+            BACK TO EDIT
+          </button>
+          <button 
+            v-if="isReadOnly" 
+            type="button" 
+            class="btn-back" 
+            @click="returnToHistory"
+          >
+            RETURN TO HISTORY
+        </button>
+        </div>
+
+        <div v-if="validationError" class="error-message">
+          {{ validationError }}
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import axios from 'axios'
+import flatpickr from "flatpickr"
+import "flatpickr/dist/flatpickr.min.css"
+
+// Form status constants
+const FORM_STATUS = {
+  DRAFT: 'Saved as Draft',
+  SUBMITTED: 'Submitted',
+  FAILED: 'Submission Failed'
+}
+
+export default {
+  name: "AddRecord",
+  data() {
+    return {
+      form: {
+        id: `temp-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+        date: '',
+        declarationType: '',
+        address: '',
+        declarationName: '',
+        price: 0,
+        otherInfo: '',
+        status: '', // Track form status
+        // 新增的税务分类字段
+        incomeType: '',
+        creditType: '',
+        deductionType: '',
+        appliedTaxRate: null,
+        appliedReturnRate: null,
+        appliedInterestRate: null,
+        appliedDeductionRate: null
+      },
+      formattedPrice: "",
+      declarationTypes: [],
+      individualDeclarationTypes: [
+        { id: 'income', name: 'Income (收入) - 薪资、投资收益等' },
+        { id: 'deduction', name: 'Deduction (扣除) - 可抵税的支出' },
+        { id: 'credit', name: 'Credit (退税/报销) - 税务返还等' },
+        { id: 'investment', name: 'Investment (投资) - 投资支出' }
+      ],
+      businessDeclarationTypes: [
+        { id: 'income', name: 'Income (收入) - 销售、服务收入等' },
+        { id: 'expense', name: 'Expense (支出) - 经营相关费用' },
+        { id: 'asset', name: 'Asset (资产) - 企业资产购入' },
+        { id: 'liability', name: 'Liability (负债) - 贷款及负债' },
+        { id: 'tax', name: 'Tax (税金) - 税务支付' }
+      ],
+      // 新增的分类选项
+      incomeTypes: [
+        { id: 'SALARY', name: 'Salary (薪资) - 个人工资收入' },
+        { id: 'INVESTMENT', name: 'Investment (投资收益) - 股息、利息等' },
+        { id: 'BUSINESS', name: 'Business (商业收入) - 经营所得' },
+        { id: 'OTHER', name: 'Other (其他收入) - 其他各类收入' }
+      ],
+      creditTypes: [
+        { id: 'REFUND', name: 'Tax Refund (退税) - 税务退款' },
+        { id: 'REIMBURSEMENT', name: 'Reimbursement (报销) - 费用报销' }
+      ],
+      deductionTypes: [
+        { id: 'BUSINESS_EXPENSE', name: 'Business Expense (商业支出) - 100%可抵扣' },
+        { id: 'EDUCATION', name: 'Education (教育支出) - 50%可抵扣' },
+        { id: 'CHARITY', name: 'Charity (慈善捐款) - 100%可抵扣' },
+        { id: 'MEDICAL', name: 'Medical (医疗支出) - 80%可抵扣' }
+      ],
+      loading: false,
+      validationError: '',
+      userRole: 'individual', // Default to 'individual', should be dynamically set
+      isReviewMode: false,
+      editingField: null,
+      formVerified: false,
+      savedForms: [], // Store all saved forms with their status
+      isReadOnly: false // For submitted forms that can't be edited
+    }
+  },
+  props: {
+    viewMode: {
+      type: Boolean,
+      default: false
+    },
+    formId: {
+      type: [String, Number],
+      default: null
+    },
+    mode: {
+      type: String,
+      default: 'edit' // 'edit' or 'view'
+    }
+  },
+  methods: {
+    formatPrice() {
+      let rawValue = this.formattedPrice.replace(/[^\d.]/g, "")
+      const parts = rawValue.split(".")
+      if (parts.length > 2) rawValue = parts[0] + "." + parts.slice(1).join("")
+      
+      // Ensure exactly 2 decimal places
+      if (parts.length === 1) {
+        rawValue += ".00"
+      } else if (parts[1].length === 1) {
+        rawValue += "0"
+      } else if (parts[1].length > 2) {
+        rawValue = parts[0] + "." + parts[1].slice(0, 2)
+      }
+      
+      this.form.price = parseFloat(rawValue) || 0
+      this.formattedPrice = rawValue.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " AUD"
+    },
+    formatPriceAndFinishEdit() {
+      this.formatPrice()
+      this.finishEdit()
+    },
+    removeFormatting() {
+      this.formattedPrice = this.formattedPrice.replace(/[^\d.]/g, "")
+    },
+    goBack() {
+      // Navigate back to the previous page
+      this.$router.go(-1);
+    },
+    reviewForm() {
+      // Validate form
+      if (this.validateForm()) {
+        this.isReviewMode = true;
+      }
+    },
+    validateForm() {
+      this.validationError = ""
+      
+      // Validation logic
+      if (!this.form.date) {
+        this.validationError = "Please enter a valid date"
+        return false
+      }
+      if (!this.form.declarationType) {
+        this.validationError = "Please select a declaration type"
+        return false
+      }
+      if (!this.form.address) {
+        this.validationError = "Please enter an address"
+        return false
+      }
+      if (!this.form.declarationName) {
+        this.validationError = "Please enter a declaration name"
+        return false
+      }
+      if (!this.form.price || this.form.price <= 0) {
+        this.validationError = "Please enter a valid price greater than zero"
+        return false
+      }
+      
+      return true
+    },
+    async submitTaxForm() {
+      if (!this.formVerified) {
+        this.validationError = "Please verify the information before submission"
+        return
+      }
+      
+      this.loading = true
+      this.validationError = '';
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      const submitWithRetry = async () => {
+        try {
+          console.log("Submitting form data:", {
+            date: this.form.date,
+            declaration_type: this.form.declarationType,
+            address: this.form.address,
+            declaration_name: this.form.declarationName,
+            price: this.form.price,
+            other_info: this.form.otherInfo,
+            form_id: this.form.id
+          });
+          
+          // Ensure API endpoint is correct - adjust based on actual interface
+          const res = await axios.post("/api/submit_tax_form", {
+            date: this.form.date,
+            declaration_type: this.form.declarationType,
+            address: this.form.address,
+            declaration_name: this.form.declarationName,
+            price: this.form.price,
+            other_info: this.form.otherInfo,
+            form_id: this.form.id
+          });
+          
+          console.log("API response:", res);
+          
+          // Set status to submitted
+          this.form.status = FORM_STATUS.SUBMITTED;
+          
+          // Get the database-generated ID from the response
+          if (res.data && res.data.success) {
+            const dbGeneratedId = res.data.id;
+            // 记录下临时ID和真实ID的映射关系，以便更新localStorage中的数据
+            const tempId = this.form.id;
+            
+            // Update the form with the database ID
+            this.form.id = dbGeneratedId;
+            
+            console.log(`表单ID已更新: 临时ID ${tempId} -> 数据库ID ${dbGeneratedId}`);
+          } else {
+            console.warn("提交成功但未收到数据库ID");
+          }
+          
+          // Store form with status in saved forms
+          this.storeFormWithStatus();
+          
+          alert("Form submitted successfully!");
+          
+          // Redirect to form history page
+          this.$router.push('/form-history');
+          return true;
+      } catch (err) {
+          console.error("Form submission error:", err);
+          
+          // Check if it's a database lock error
+          const isDbLockError = 
+            err.response?.data?.error?.includes("database is locked") || 
+            err.message?.includes("database is locked");
+            
+          // If it's a database lock error and we haven't exceeded max retries
+          if (isDbLockError && retryCount < maxRetries) {
+            retryCount++;
+            const waitTime = 1000 * retryCount; // Exponential backoff: 1s, 2s, 3s
+            this.validationError = `Database is busy. Retrying in ${waitTime/1000} seconds... (Attempt ${retryCount}/${maxRetries})`;
+            
+            console.log(`Database locked, retrying in ${waitTime}ms (Attempt ${retryCount}/${maxRetries})`);
+            
+            // Wait and retry
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            return await submitWithRetry();
+          }
+          
+          // Set status to failed
+          this.form.status = FORM_STATUS.FAILED;
+          
+          // Store form with failed status
+          this.storeFormWithStatus();
+          
+          // Log error details
+          if (err.response) {
+            console.error("Error response data:", err.response.data);
+          } else if (err.request) {
+            console.error("No response received:", err.request);
+          } else {
+            console.error("Request error:", err.message);
+          }
+          
+          // Development mode - simulate success
+          // Remove this code segment in production
+          if (process.env.NODE_ENV === 'development') {
+            alert("Development mode: Form submission simulated");
+            console.log("Development mode: Submission success simulated");
+            
+            // Override status for development testing
+            this.form.status = FORM_STATUS.SUBMITTED;
+            
+            // Simulate a proper database ID (for development only)
+            this.form.id = this.form.id || `db-${Date.now()}`;
+            this.storeFormWithStatus();
+            
+            // Redirect to form history page
+            this.$router.push('/form-history');
+            return true;
+          }
+          
+          // Show a more specific error message
+          if (isDbLockError) {
+            this.validationError = "The database is currently busy. Please try again in a few moments.";
+            // Save as draft automatically
+            await this.saveAndExit();
+            alert("Your form has been saved as a draft. You can try submitting it again later.");
+          } else {
+            this.validationError = "Failed to submit form: " + (err.response?.data?.error || err.message || "Unknown error");
+          }
+          
+          return false;
+        }
+      };
+      
+      try {
+        await submitWithRetry();
+      } finally {
+        this.loading = false;
+      }
+    },
+    async saveAndExit() {
+      // Set status to draft
+      this.form.status = FORM_STATUS.DRAFT;
+      
+      try {
+        this.loading = true;
+        
+        // 确保表单有一个临时ID
+        if (!this.form.id) {
+          this.form.id = `temp-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        }
+        
+        console.log("Saving draft to server:", {
+          date: this.form.date,
+          declaration_type: this.form.declarationType,
+          address: this.form.address,
+          declaration_name: this.form.declarationName,
+          price: this.form.price,
+          other_info: this.form.otherInfo,
+          status: 'draft',
+          form_id: this.form.id // 传递表单ID，可能是临时ID
+        });
+        
+        // 保存草稿到数据库
+        const res = await axios.post("/api/save_draft", {
+          date: this.form.date,
+          declaration_type: this.form.declarationType,
+          address: this.form.address,
+          declaration_name: this.form.declarationName,
+          price: this.form.price,
+          other_info: this.form.otherInfo,
+          status: 'draft',
+          form_id: this.form.id // 如果是更新现有草稿
+        });
+        
+        console.log("Draft save response:", res);
+        
+        // 使用从服务器返回的ID更新表单
+        if (res.data && res.data.success) {
+          const dbGeneratedId = res.data.id;
+          // 记录下临时ID和真实ID的映射关系
+          const tempId = this.form.id;
+          
+          // 更新表单ID为数据库生成的ID
+          this.form.id = dbGeneratedId;
+          
+          console.log(`表单ID已更新: 临时ID ${tempId} -> 数据库ID ${dbGeneratedId}`);
+        } else {
+          console.warn("保存成功但未收到数据库ID");
+        }
+        
+        // 同时保存到localStorage作为备份
+        this.storeFormWithStatus();
+        
+        alert("Form saved as draft");
+        // 重定向到表单历史页面
+        this.$router.push('/form-history');
+      } catch (err) {
+        console.error("Error saving draft:", err);
+        
+        // 如果API调用失败，仍然保存到localStorage
+        this.storeFormWithStatus();
+        
+        alert("Failed to save to server. Draft saved locally.");
+        this.$router.push('/form-history');
+      } finally {
+        this.loading = false;
+      }
+    },
+    storeFormWithStatus() {
+      // Check if the form already has an ID, otherwise create a temporary one
+      const formId = this.form.id || `temp-${Date.now()}`;
+      
+      // Create a copy of the form with a unique ID and timestamp
+      const formCopy = {
+        ...this.form,
+        id: formId,
+        savedAt: new Date().toISOString(),
+        formattedPrice: this.formattedPrice
+      };
+      
+      // Add to saved forms array
+      this.savedForms.push(formCopy);
+      
+      // Save to localStorage
+      try {
+        // Get existing forms if any
+        let savedFormsData = localStorage.getItem('taxForms') || '[]';
+        let forms = JSON.parse(savedFormsData);
+        
+        // If this form already exists (with same ID), update it instead of adding
+        const existingIndex = forms.findIndex(f => f.id === formId);
+        if (existingIndex >= 0) {
+          forms[existingIndex] = formCopy;
+        } else {
+          // Add new form
+          forms.push(formCopy);
+        }
+        
+        // Save back to localStorage
+        localStorage.setItem('taxForms', JSON.stringify(forms));
+        
+        // Also save the current draft separately if it's a draft
+        if (formCopy.status === FORM_STATUS.DRAFT) {
+          localStorage.setItem('taxFormDraft', JSON.stringify(this.form));
+        }
+      } catch (e) {
+        console.error("Error saving form data:", e);
+      }
+    },
+    resetForm() {
+      // Reset form without losing ID
+      this.form = {
+        id: `temp-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+        date: new Date().toISOString().split('T')[0],
+        declarationType: '',
+        address: '',
+        declarationName: '',
+        price: 0,
+        otherInfo: '',
+        status: '',
+        // 重置新的税务分类字段
+        incomeType: '',
+        creditType: '',
+        deductionType: '',
+        appliedTaxRate: null,
+        appliedReturnRate: null,
+        appliedInterestRate: null,
+        appliedDeductionRate: null
+      };
+      
+      this.formattedPrice = '';
+      this.validationError = '';
+      this.isReviewMode = false;
+      this.formVerified = false;
+    },
+    backToEdit() {
+      this.isReviewMode = false
+      this.editingField = null
+    },
+    editField(field) {
+      this.editingField = field
+      this.$nextTick(() => {
+        // Focus on the edit field
+        if (this.$refs.editInput) {
+          this.$refs.editInput.focus()
+        } else {
+          const editEl = document.querySelector('.editing input, .editing select, .editing textarea')
+          if (editEl) editEl.focus()
+        }
+      })
+    },
+    finishEdit() {
+      // Set a short delay to ensure the blur event is processed before clearing the edit state
+      setTimeout(() => {
+        this.editingField = null
+      }, 100)
+    },
+    getDeclarationTypeName(typeId) {
+      const allTypes = [...this.individualDeclarationTypes, ...this.businessDeclarationTypes]
+      const foundType = allTypes.find(type => type.id === typeId)
+      return foundType ? foundType.name : typeId
+    },
+    getIncomeTypeName(typeId) {
+      const foundType = this.incomeTypes.find(type => type.id === typeId)
+      return foundType ? foundType.name : (typeId || 'Not specified')
+    },
+    getCreditTypeName(typeId) {
+      const foundType = this.creditTypes.find(type => type.id === typeId)
+      return foundType ? foundType.name : (typeId || 'Not specified')
+    },
+    getDeductionTypeName(typeId) {
+      const foundType = this.deductionTypes.find(type => type.id === typeId)
+      return foundType ? foundType.name : (typeId || 'Not specified')
+    },
+    async getUserRole() {
+      try {
+        // Replace with your actual API endpoint to get user role
+        const res = await axios.get('/api/auth/user')
+        this.userRole = res.data.role || 'individual'
+        this.setDeclarationTypesByRole()
+      } catch (err) {
+        console.error("Failed to get user role:", err)
+        // Default to individual
+        this.userRole = 'individual'
+        this.setDeclarationTypesByRole()
+      }
+    },
+    setDeclarationTypesByRole() {
+      if (this.userRole === 'business') {
+        this.declarationTypes = this.businessDeclarationTypes
+      } else {
+        this.declarationTypes = this.individualDeclarationTypes
+      }
+    },
+    loadSavedForms() {
+      // Load all saved forms
+      try {
+        const savedFormsData = localStorage.getItem('taxForms');
+        if (savedFormsData) {
+          this.savedForms = JSON.parse(savedFormsData);
+        }
+      } catch (e) {
+        console.error("Error loading saved forms:", e);
+      }
+    },
+    loadSavedDraft() {
+      const savedForm = localStorage.getItem('taxFormDraft')
+      if (savedForm) {
+        try {
+          const parsedForm = JSON.parse(savedForm)
+          this.form = { ...parsedForm }
+          this.formattedPrice = this.form.price ? 
+            this.form.price.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " AUD" : ""
+        } catch (e) {
+          console.error("Error loading saved form:", e)
+        }
+      }
+    },
+    loadSpecificForm() {
+      const formId = this.formId || this.$route.query.id;
+      const mode = this.mode || this.$route.query.mode || 'edit';
+      
+      console.log(`加载表单，ID: ${formId}, 模式: ${mode}, Props: viewMode=${this.viewMode}`);
+      
+      if (!formId) return;
+      
+      try {
+        // Load all forms
+        const savedFormsData = localStorage.getItem('taxForms');
+        if (savedFormsData) {
+          const forms = JSON.parse(savedFormsData);
+          const formToLoad = forms.find(f => f.id.toString() === formId.toString());
+          
+          if (formToLoad) {
+            console.log(`已找到表单: ID=${formToLoad.id}, 状态=${formToLoad.status}`);
+            
+            // Load the form data
+            this.form = { ...formToLoad };
+            this.formattedPrice = this.form.formattedPrice || '';
+            
+            // 检查是否为已提交表单
+            const isSubmitted = 
+              this.form.status === 'SUBMITTED' || 
+              this.form.status === 'Submitted' || 
+              this.form.status === 'submitted' ||
+              (this.form.originalStatus && 
+               ['submitted', 'Submitted', 'SUBMITTED'].includes(this.form.originalStatus));
+            
+            // 如果是view模式或表单已提交，设置为只读模式
+            if (mode === 'view' || isSubmitted || this.viewMode === true) {
+              console.log(`设置表单为只读模式: mode=${mode}, isSubmitted=${isSubmitted}, viewMode=${this.viewMode}`);
+              this.isReadOnly = true;
+              this.isReviewMode = true;
+            }
+            
+            // Get declaration types based on user role
+            this.getUserRole();
+          } else {
+            console.error(`未找到ID为 ${formId} 的表单`);
+          }
+        }
+      } catch (e) {
+        console.error("Error loading specific form:", e);
+      }
+    },
+    returnToHistory() {
+      // Implement the logic to return to form history
+      this.$router.push('/form-history');
+    }
+  },
+  mounted() {
+    // Initialize date picker
+    flatpickr("#date-picker", {
+      dateFormat: "Y - m - d",
+      // Ensure defaultDate is set only if form.date is empty, otherwise use existing
+      defaultDate: this.form.date || new Date(),
+      onChange: (selectedDates, dateStr) => {
+        this.form.date = dateStr
+      }
+    })
+    
+    // Check if we are loading an existing form (view or edit)
+    if (this.formId || this.$route.query.id) {
+      console.log("加载现有表单...");
+      this.loadSpecificForm();
+    } else {
+      // This is for creating a NEW form
+      console.log("创建新表单...");
+      // Ensure a fresh temporary ID is generated for a new form
+      this.resetForm(); 
+      
+      // Get user role and set declaration types
+      this.getUserRole();
+      
+      // Load saved forms (might not be needed for new form view)
+      // this.loadSavedForms(); 
+      
+      // Don't load draft when explicitly creating a new form
+      // this.loadSavedDraft(); 
+    }
+  }
+}
+</script>
+
+<style scoped>
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #E5E5E5;
+  padding: 0;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.form-card {
+  position: relative;
+  background: #E1E1E1;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 600px;
+  margin: auto;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.form-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.form-row {
+  display: flex;
+  width: 100%;
+  max-width: 500px;
+  gap: 10px;
+  margin-bottom: 0.8rem;
+}
+
+.half-width {
+  flex: 1;
+  margin-bottom: 0 !important;
+}
+
+.back-arrow {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  font-size: 16px;
+  color: #333;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  padding: 5px 12px;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.back-arrow:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  transform: scale(1.05);
+}
+
+.arrow-icon {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.back-text {
+  font-weight: 500;
+}
+
+.card-title {
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin-bottom: 1.2rem;
+  color: #333;
+}
+
+.form-group {
+  margin-bottom: 0.8rem;
+  width: 100%;
+  max-width: 500px;
+}
+
+label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.3rem;
+  color: #555;
+}
+
+.input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.form-control {
+  width: 100%;
+  height: 40px;
+  padding: 0.6rem;
+  font-size: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background: white;
+  color: #333;
+  box-sizing: border-box;
+}
+
+select.form-control {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23333' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  padding-right: 2rem;
+}
+
+textarea.form-control {
+  min-height: 70px;
+  resize: vertical;
+}
+
+/* 审阅模式样式 */
+.review-field {
+  position: relative;
+  width: 100%;
+  min-height: 40px;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+}
+
+.readonly-value {
+  padding: 0.6rem 0;
+  font-size: 1rem;
+  color: #333;
+  flex-grow: 1;
+}
+
+.edit-icon {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  margin-left: 10px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.edit-icon:hover {
+  opacity: 1;
+}
+
+.verification-box {
+  width: 100%;
+  max-width: 500px;
+  margin: 1rem 0;
+  padding: 0.6rem;
+  background: #f5f5f5;
+  border-radius: 5px;
+}
+
+.verification-label {
+  display: flex;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.verification-label input {
+  margin-top: 3px;
+  margin-right: 10px;
+}
+
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 1.2rem;
+  width: 100%;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 0.5rem;
+}
+
+.btn-submit, .btn-save {
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background-color 0.3s, transform 0.2s;
+  width: 100%;
+}
+
+.btn-submit {
+  background: #1F3A93;
+  color: white;
+}
+
+.btn-submit:disabled {
+  background: #a0a0a0;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-save {
+  background: transparent;
+  border: 1px solid #1F3A93;
+  color: #1F3A93;
+}
+
+.btn-submit:not(:disabled):hover {
+  background: #142c70;
+  transform: translateY(-2px);
+}
+
+.btn-save:hover {
+  border-color: #142c70;
+  color: #142c70;
+  transform: translateY(-2px);
+}
+
+.btn-back {
+  background: #1F3A93; /* Updated to match LoginPage button color */
+  color: white;
+}
+
+.btn-back:hover {
+  background: #142c70; /* Darker version to match LoginPage hover */
+  transform: translateY(-2px);
+}
+
+.error-message {
+  color: #e53935;
+  margin-top: 0.8rem;
+  font-size: 0.9rem;
+  text-align: center;
+  width: 100%;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 600px) {
+  .form-card {
+    padding: 0.8rem;
+    max-height: 95vh;
+    margin: auto;
+    border-radius: 10px;
+  }
+  
+  .form-group, .button-group, .form-row, .verification-box {
+    max-width: 100%;
+  }
+  
+  .form-row {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .half-width {
+    width: 100%;
+  }
+}
+</style>
+
+  

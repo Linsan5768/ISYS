@@ -1,0 +1,45 @@
+/* Base theme variables */
+:root {
+  --bg-base: #fef6f0;
+  --bg-card: rgb(252, 241, 233);
+  --text-main: #444;
+  --text-subtle: #666;
+  --primary: #ffb347;
+  --primary-hover: rgb(255, 160, 51);
+  --selected-box-shadow: 5px 5px 12px rgb(255, 185, 81);
+  --box-shadow: 5px 5px 10px rgba(108, 108, 108, 0.7);
+  --selected-bt: 5px 5px 10px rgba(251, 151, 0, 0.568);
+  --slider-shadow: 2px 2px 10px rgba(0, 0, 0, 0.7);
+  --slider-text: rgb(255, 246, 234);
+  --menu: #ffb2471a;
+  --text-color: rgba(68, 68, 68, 0.15);
+}
+
+/* Dark theme */
+.dark {
+  --bg-base: #1e1e1e;
+  --bg-card: #2d2d2d;
+  --text-main: #e4e4e4;
+  --text-subtle: #a0a0a0;
+  --primary: #666666;
+  --primary-hover: #777777;
+  --input-border: #4d4d4d;
+  --bg-input: #2a2a2a;
+  --selected-box-shadow: 5px 5px 13px rgba(255, 255, 255, 0.5);
+  --box-shadow: 2px 2px 13px rgba(255, 255, 255, 0.4);
+  --selected-bt: 0 0 12px rgba(150, 150, 150, 0.5);
+  --slider-shadow: 5px 5px 10px rgb(0, 0, 0);
+  --slider-text: #1e1e1e;
+  --menu: rgba(45, 45, 45, 0.536);
+  --text-color: rgba(228, 228, 228, 0.15);
+}
+
+/* Basic element styles */
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: 'Poppins', 'PingFang SC', 'Helvetica Neue', sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
+} 
