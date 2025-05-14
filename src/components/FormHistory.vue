@@ -113,14 +113,20 @@ export default {
         let createdDate = '-';
         if (form.created_at) {
           createdDate = this.formatDate(form.created_at);
-          console.log(`已格式化创建日期: ${form.created_at} -> ${createdDate}`);
+        } else if (form.savedAt) {
+          // 对于localStorage中的表单，使用savedAt字段
+          createdDate = this.formatDate(form.savedAt);
+        } else {
+          // 如果没有日期信息，使用当前日期作为后备选项
+          createdDate = this.formatDate(new Date());
         }
         
         // 最后编辑日期 - 使用创建日期作为备用
         let lastEditedDate = '-';
         if (form.updated_at) {
           lastEditedDate = this.formatDate(form.updated_at);
-          console.log(`已格式化更新日期: ${form.updated_at} -> ${lastEditedDate}`);
+        } else if (form.lastEdited) {
+          lastEditedDate = this.formatDate(form.lastEdited);
         } else if (createdDate !== '-') {
           lastEditedDate = createdDate;
         }
@@ -129,30 +135,54 @@ export default {
         let submissionDate = '-';
         if (form.submitted_at) {
           submissionDate = this.formatDate(form.submitted_at);
-          console.log(`已格式化提交日期: ${form.submitted_at} -> ${submissionDate}`);
+        } else if (form.submittedAt) {
+          submissionDate = this.formatDate(form.submittedAt);
         }
         
         // 保存原始状态值用于调试
         const originalStatus = form.status;
         
-        // 只保留SUBMITTED和SAVED两种状态
+        // 确定表单状态
         let displayStatus = 'SAVED'; // 默认为已保存
         
         if (form.status === 'submitted' || form.status === 'Submitted' || 
             form.status === this.statusMap.SUBMITTED || form.status === 'SUBMITTED') {
           displayStatus = 'SUBMITTED';
+        } else if (form.status === 'Saved as Draft') {
+          // 显式处理"Saved as Draft"状态
+          displayStatus = 'SAVED';
         }
         
         console.log(`表单 ${form.id} 状态: 原始=${originalStatus}, 显示=${displayStatus}`);
         
-        // 确保使用数据库ID
+        // 确保使用正确的ID
         let displayId = form.id;
-        // 如果ID是以temp-开头的临时ID，但form有数值型id属性，则使用数值型id
-        if (typeof form.id === 'string' && form.id.startsWith('temp-') && form.numeric_id) {
-          displayId = form.numeric_id;
+        
+        // 给所有没有ID或ID为temp-开头的表单生成一个稳定的数字ID
+        if (!displayId || (typeof displayId === 'string' && displayId.startsWith('temp-'))) {
+          // 首先尝试使用numeric_id字段
+          if (form.numeric_id) {
+            displayId = form.numeric_id;
+          } else {
+            // 尝试从临时ID中提取序列号部分
+            if (typeof displayId === 'string' && displayId.startsWith('temp-')) {
+              const parts = displayId.split('-');
+              if (parts.length >= 2) {
+                // 使用时间戳部分作为数字ID
+                displayId = parts[1];
+              }
+            }
+            
+            // 如果上述方法都失败，生成一个基于时间的ID
+            if (!displayId || displayId === 'temp-') {
+              const randomId = Date.now() % 10000;
+              displayId = String(randomId);
+            }
+          }
         }
+        
         // 将ID转换为纯数字格式（如果可能）
-        if (displayId && !isNaN(Number(displayId)) && !displayId.startsWith('temp-')) {
+        if (displayId && !isNaN(Number(displayId)) && !String(displayId).startsWith('temp-')) {
           displayId = Number(displayId).toString();
         }
         
@@ -290,10 +320,18 @@ export default {
               }
             }
             
+            // 确保所有表单都有created_at日期
+            if (!form.created_at && form.created_date) {
+              form.created_at = form.created_date;
+            } else if (!form.created_at) {
+              form.created_at = new Date().toISOString();
+            }
+            
             console.log(`Loading form - Database ID: ${formId}, Price: ${form.price}, Status: ${form.status}`);
             return {
               ...form,
               id: formId, // 确保ID是字符串
+              originalId: form.id, // 保存原始ID用于后续匹配
               _uniqueId: `form-${formId}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}` // 添加唯一标识符
             };
           });
@@ -326,29 +364,52 @@ export default {
               const tempIdMap = new Set(this.forms.filter(f => f.temp_id).map(f => f.temp_id));
               
               const newLocalForms = localForms.filter(localForm => {
-                const localId = String(localForm.id);
-                // 如果数据库ID不在服务器返回列表中，且临时ID也不匹配服务器中的任何表单
-                return !serverFormIds.has(localId) && 
-                       !tempIdMap.has(localId) &&
-                       typeof localId === 'string' && 
-                       localId.startsWith('temp-');
+                // 如果是字符串ID，确保它是temp-开头的
+                const localId = String(localForm.id || '');
+                const isTemporary = localId.startsWith('temp-');
+                
+                // 确保此表单不在服务器列表中
+                return (isTemporary || !serverFormIds.has(localId)) && 
+                       !tempIdMap.has(localId);
               });
               
               if (newLocalForms.length > 0) {
-                console.log(`Found ${newLocalForms.length} local temporary forms not saved to server`);
+                console.log(`Found ${newLocalForms.length} local forms not on server`);
                 // 添加这些本地表单到表单列表中
                 newLocalForms.forEach(localForm => {
                   // 尝试从临时ID中提取数字部分作为numeric_id
-                  const localId = String(localForm.id);
+                  const localId = String(localForm.id || '');
                   const numericMatch = localId.match(/\d+/);
                   
                   if (numericMatch) {
                     localForm.numeric_id = numericMatch[0];
                   }
                   
+                  // 确保所有必需的日期字段存在
+                  if (!localForm.created_at) {
+                    // 尝试使用savedAt作为创建日期
+                    if (localForm.savedAt) {
+                      localForm.created_at = localForm.savedAt;
+                    } else {
+                      // 使用当前日期作为后备
+                      localForm.created_at = new Date().toISOString();
+                    }
+                  }
+                  
+                  if (!localForm.updated_at) {
+                    // 尝试使用lastEdited作为更新日期
+                    if (localForm.lastEdited) {
+                      localForm.updated_at = localForm.lastEdited;
+                    } else {
+                      // 使用创建日期作为后备
+                      localForm.updated_at = localForm.created_at;
+                    }
+                  }
+                  
                   // 添加唯一标识符
                   const uniqueForm = {
                     ...localForm,
+                    originalId: localForm.id, // 保存原始ID
                     _uniqueId: `local-${localForm.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
                   };
                   this.forms.push(uniqueForm);
@@ -383,7 +444,7 @@ export default {
             console.log("Loading forms from localStorage as fallback:", localForms);
             this.forms = localForms.map(form => {
               // 处理ID，优先使用数字ID
-              let formId = String(form.id);
+              let formId = String(form.id || `temp-${Date.now()}`);
               // 尝试从临时ID中提取数字部分
               if (formId.startsWith('temp-')) {
                 const numericMatch = formId.match(/\d+/);
@@ -395,9 +456,31 @@ export default {
                 formId = String(Number(formId));
               }
               
+              // 确保表单有状态信息
+              if (!form.status) {
+                // 根据submitted_at字段判断状态
+                if (form.submitted_at || form.submittedAt) {
+                  form.status = 'SUBMITTED';
+                } else {
+                  form.status = 'Saved as Draft';
+                }
+              }
+              
+              // 确保所有必需的日期字段存在
+              if (!form.created_at) {
+                // 尝试使用savedAt作为创建日期
+                if (form.savedAt) {
+                  form.created_at = form.savedAt;
+                } else {
+                  // 使用当前日期作为后备
+                  form.created_at = new Date().toISOString();
+                }
+              }
+              
               return {
                 ...form,
                 id: formId,
+                originalId: form.id, // 保存原始ID
                 _uniqueId: `local-${form.id}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
               };
             });
@@ -422,6 +505,23 @@ export default {
     formatDate(dateString) {
       if (!dateString) return '-';
       
+      // 如果传入的是Date对象，直接使用
+      if (dateString instanceof Date) {
+        if (!isNaN(dateString.getTime())) {
+          return `${dateString.getFullYear()}-${String(dateString.getMonth() + 1).padStart(2, '0')}-${String(dateString.getDate()).padStart(2, '0')}`;
+        }
+        return '-';
+      }
+      
+      // 处理数字类型的时间戳
+      if (typeof dateString === 'number') {
+        const date = new Date(dateString);
+        if (!isNaN(date.getTime())) {
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+        return '-';
+      }
+      
       // 尝试作为ISO字符串解析
       let date = new Date(dateString);
       
@@ -437,34 +537,85 @@ export default {
         /(\d{4})-(\d{1,2})-(\d{1,2})/,
         // 月/日/年
         /(\d{1,2})\/(\d{1,2})\/(\d{4})/,
+        // 日/月/年
+        /(\d{1,2})\/(\d{1,2})\/(\d{4})/,
         // 年.月.日
-        /(\d{4})\.(\d{1,2})\.(\d{1,2})/
+        /(\d{4})\.(\d{1,2})\.(\d{1,2})/,
+        // 年月日 (无分隔符)
+        /(\d{4})(\d{2})(\d{2})/
       ];
       
       for (const format of formats) {
-        const match = dateString.match(format);
+        const match = String(dateString).match(format);
         if (match) {
+          let year, month, day;
+          
           // 根据格式创建日期
           if (format === formats[0]) {
             // 年-月-日
-            date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+            year = Number(match[1]);
+            month = Number(match[2]) - 1;
+            day = Number(match[3]);
           } else if (format === formats[1]) {
             // 月/日/年
-            date = new Date(Number(match[3]), Number(match[1]) - 1, Number(match[2]));
-          } else {
+            year = Number(match[3]);
+            month = Number(match[1]) - 1;
+            day = Number(match[2]);
+          } else if (format === formats[2]) {
+            // 日/月/年 (欧洲格式)
+            year = Number(match[3]);
+            month = Number(match[2]) - 1;
+            day = Number(match[1]);
+          } else if (format === formats[3]) {
             // 年.月.日
-            date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+            year = Number(match[1]);
+            month = Number(match[2]) - 1;
+            day = Number(match[3]);
+          } else if (format === formats[4]) {
+            // 年月日 (无分隔符)
+            year = Number(match[1]);
+            month = Number(match[2]) - 1;
+            day = Number(match[3]);
           }
           
-          if (!isNaN(date.getTime())) {
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+          // 验证日期合理性
+          if (year >= 1900 && year <= 2100 && 
+              month >= 0 && month <= 11 && 
+              day >= 1 && day <= 31) {
+            date = new Date(year, month, day);
+            if (!isNaN(date.getTime())) {
+              return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            }
           }
         }
       }
       
-      // 如果所有尝试都失败，返回原始字符串
       console.warn("无法解析日期格式:", dateString);
-      return dateString;
+      
+      // 如果所有尝试都失败，尝试提取任何看起来像日期的部分
+      const anyDateMatch = String(dateString).match(/\b(\d{4})[-/.]?(\d{1,2})[-/.]?(\d{1,2})\b/);
+      if (anyDateMatch) {
+        try {
+          const year = Number(anyDateMatch[1]);
+          const month = Number(anyDateMatch[2]) - 1;
+          const day = Number(anyDateMatch[3]);
+          
+          // 验证日期合理性
+          if (year >= 1900 && year <= 2100 && 
+              month >= 0 && month <= 11 && 
+              day >= 1 && day <= 31) {
+            const extractedDate = new Date(year, month, day);
+            if (!isNaN(extractedDate.getTime())) {
+              return `${extractedDate.getFullYear()}-${String(extractedDate.getMonth() + 1).padStart(2, '0')}-${String(extractedDate.getDate()).padStart(2, '0')}`;
+            }
+          }
+        } catch (e) {
+          console.error("提取日期时出错:", e);
+        }
+      }
+      
+      // 如果什么都失败了，返回一个默认格式
+      return dateString.substring(0, 10) || '-';
     },
     getStatusClass(status) {
       if (status === 'SUBMITTED') return 'status-submitted';
@@ -472,33 +623,64 @@ export default {
       return '';
     },
     viewForm(form) {
-      // Store the form to view in localStorage
-      localStorage.setItem('viewFormId', form.id);
-      
+      // 保存完整的表单数据到localStorage
       console.log(`查看表单 ID:${form.id}, 状态:${form.status}, 原始状态:${form.originalStatus}`);
+      
+      try {
+        // 先直接尝试保存当前显示的格式化表单数据
+        localStorage.setItem('viewForm', JSON.stringify(form));
+        
+        // 再尝试从表单数据找到完整表单
+        const savedFormsData = localStorage.getItem('taxForms');
+        if (savedFormsData) {
+          const forms = JSON.parse(savedFormsData);
+          // 查找匹配此ID或displayId的表单
+          const originalForm = forms.find(f => 
+            f.id.toString() === form.id.toString() ||
+            (f.id.startsWith('temp-') && f.numeric_id && f.numeric_id.toString() === form.id.toString()) ||
+            (form.originalId && f.id.toString() === form.originalId.toString())
+          );
+          
+          if (originalForm) {
+            console.log("找到原始表单数据:", originalForm);
+            // 合并原始表单和当前显示的表单数据
+            const mergedForm = {
+              ...originalForm,
+              displayId: form.id, // 保留显示ID
+              status: form.status, // 使用当前状态
+              created_at: originalForm.created_at || originalForm.savedAt || form.createdDate,
+              updated_at: originalForm.updated_at || originalForm.lastEdited || form.lastEditedDate
+            };
+            localStorage.setItem('viewForm', JSON.stringify(mergedForm));
+          }
+        }
+        
+        // 同时保存表单ID作为备份
+        localStorage.setItem('viewFormId', form.id);
+      } catch (e) {
+        console.error("保存视图表单时出错:", e);
+        // 回退到简单存储ID
+        localStorage.setItem('viewFormId', form.id);
+      }
       
       // 检查是否为已提交的表单
       const isSubmitted = form.status === 'SUBMITTED' || 
                           form.originalStatus === 'submitted' || 
                           form.originalStatus === 'Submitted';
       
-      // Redirect to form view/edit page
-      if (isSubmitted) {
-        // View only mode for submitted forms
-        console.log("正在跳转到ViewForm路由...");
-        this.$router.push({ name: 'ViewForm', query: { id: form.id, mode: 'view' } });
-      } else {
-        // Edit mode for saved drafts or failed submissions
-        console.log("正在跳转到AddRecord路由...");
-        this.$router.push({ name: 'AddRecord', query: { id: form.id, mode: 'edit' } });
-      }
+      // 所有表单都导航到ViewForm路由，但使用不同的mode参数
+      console.log(`正在跳转到ViewForm路由... 状态: ${isSubmitted ? 'submitted' : 'saved'}`);
+      
+      // 未提交状态时，使用editable模式
+      const viewMode = isSubmitted ? 'view' : 'editable';
+      this.$router.push({ name: 'ViewForm', query: { id: form.id, mode: viewMode } });
     },
     createNewForm() {
       this.$router.push({ name: 'AddRecord' });
     },
     goBack() {
       // Return to the previous page instead of dashboard
-      this.$router.go(-1);
+      this.$router.push('/home');
     },
     returnToHistory() {
       // Implement the logic to return to form history
@@ -841,4 +1023,4 @@ export default {
     font-size: 0.8rem;
   }
 }
-</style> 
+</style>

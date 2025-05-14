@@ -53,8 +53,8 @@
               </div>
               <!-- 显示调试信息，帮助诊断数据问题 -->
               <div v-if="currentTaxLiabilities.length === 0 && taxLiabilities.length > 0" class="debug-info">
-                <p>有 {{ taxLiabilities.length }} 条税务负债记录，但没有符合当前显示条件的记录</p>
-                <button @click="refreshTaxLiabilities" class="btn-refresh">刷新数据</button>
+                <p>There are {{ taxLiabilities.length }} tax liability records, but none meet the current display criteria.</p>
+                <button @click="refreshTaxLiabilities" class="btn-refresh">Refresh Data</button>
               </div>
               <div v-if="taxLiabilities.length === 0" class="no-data">
                 No current tax liabilities
@@ -366,8 +366,15 @@ import axios from 'axios';
 
 export default {
   name: 'UserDashboard',
+  created() {
+    // 注入toast和notifications服务
+    this.toast = this.$root.$parent?.$options?.__compPromise?.data?.provides?.toast || null;
+    this.notifications = this.$root.$parent?.$options?.__compPromise?.data?.provides?.notifications || null;
+  },
   data() {
     return {
+      toast: null,
+      notifications: null,
       viewMode: 'yearly', // Can be 'yearly' or 'quarterly'
       hasIncomeData: false,
       hasExpenseData: false,
@@ -618,6 +625,20 @@ export default {
     useTestData() {
       console.log("Using test data to display charts");
       this.isTestMode = true;
+      
+      // Clear test notification markers from localStorage
+      try {
+        const keys = Object.keys(localStorage);
+        keys.forEach(key => {
+          if (key.startsWith('sentLiabilityReminders_') || 
+              key.startsWith('sentDashboardReminders_')) {
+            localStorage.removeItem(key);
+          }
+        });
+        console.log("Cleared test notification markers");
+      } catch (e) {
+        console.error("Error clearing test notification markers:", e);
+      }
       
       // Get current year and month
       const currentYear = new Date().getFullYear();
@@ -1110,6 +1131,7 @@ export default {
       
       // Get the current date for calculating due status
       const currentDate = new Date();
+      const currentYear = new Date().getFullYear();
       
       // 计算各类型收入的总和，用于计算税款
       const incomesByType = {};
@@ -1252,6 +1274,175 @@ export default {
         }
       }
       
+      // 生成季度估算税项，确保所有季度都有估算税
+      if (this.viewMode === 'yearly' || this.filterQuarter === 'all') {
+        // 为当前和下一年计算季度估算税
+        const taxYears = [currentYear];
+        if (currentYear + 1 <= this.filterEndYear) {
+          taxYears.push(currentYear + 1);
+        }
+        
+        taxYears.forEach(year => {
+          // 确保年份在过滤范围内
+          if (year >= this.filterStartYear && year <= this.filterEndYear) {
+            // Q1 (due April 15)
+            const q1Tax = this.calculateEstimatedQuarterlyTax(1);
+            if (q1Tax > 0) {
+              const q1DueDate = new Date(year, 3, 15); // April 15
+              
+              // 计算状态
+              let status = 'upcoming';
+              let statusText = 'Upcoming';
+              
+              if (q1DueDate < currentDate) {
+                status = 'overdue';
+                statusText = 'Overdue';
+              } else if (q1DueDate.getTime() - currentDate.getTime() < 7*24*60*60*1000) {
+                status = 'due-soon';
+                statusText = 'Due Soon';
+              }
+              
+              this.taxLiabilities.push({
+                id: `estimated-tax-q1-${year}-${this.viewMode}`,
+                name: `Q1 ${year} Estimated Tax`,
+                amount: q1Tax,
+                dueDate: q1DueDate,
+                status: status,
+                statusText: statusText,
+                color: 'rgba(255, 152, 0, 0.6)'
+              });
+            }
+            
+            // Q2 (due June 15)
+            const q2Tax = this.calculateEstimatedQuarterlyTax(2);
+            if (q2Tax > 0) {
+              const q2DueDate = new Date(year, 5, 15); // June 15
+              
+              // 计算状态
+              let status = 'upcoming';
+              let statusText = 'Upcoming';
+              
+              if (q2DueDate < currentDate) {
+                status = 'overdue';
+                statusText = 'Overdue';
+              } else if (q2DueDate.getTime() - currentDate.getTime() < 7*24*60*60*1000) {
+                status = 'due-soon';
+                statusText = 'Due Soon';
+              }
+              
+              this.taxLiabilities.push({
+                id: `estimated-tax-q2-${year}-${this.viewMode}`,
+                name: `Q2 ${year} Estimated Tax`,
+                amount: q2Tax,
+                dueDate: q2DueDate,
+                status: status,
+                statusText: statusText,
+                color: 'rgba(255, 152, 0, 0.6)'
+              });
+            }
+            
+            // Q3 (due September 15)
+            const q3Tax = this.calculateEstimatedQuarterlyTax(3);
+            if (q3Tax > 0) {
+              const q3DueDate = new Date(year, 8, 15); // September 15
+              
+              // 计算状态
+              let status = 'upcoming';
+              let statusText = 'Upcoming';
+              
+              if (q3DueDate < currentDate) {
+                status = 'overdue';
+                statusText = 'Overdue';
+              } else if (q3DueDate.getTime() - currentDate.getTime() < 7*24*60*60*1000) {
+                status = 'due-soon';
+                statusText = 'Due Soon';
+              }
+              
+              this.taxLiabilities.push({
+                id: `estimated-tax-q3-${year}-${this.viewMode}`,
+                name: `Q3 ${year} Estimated Tax`,
+                amount: q3Tax,
+                dueDate: q3DueDate,
+                status: status,
+                statusText: statusText,
+                color: 'rgba(255, 152, 0, 0.6)'
+              });
+            }
+            
+            // Q4 (due January 15 next year)
+            const q4Tax = this.calculateEstimatedQuarterlyTax(4);
+            if (q4Tax > 0) {
+              const q4DueDate = new Date(year + 1, 0, 15); // January 15 next year
+              
+              // 计算状态
+              let status = 'upcoming';
+              let statusText = 'Upcoming';
+              
+              if (q4DueDate < currentDate) {
+                status = 'overdue';
+                statusText = 'Overdue';
+              } else if (q4DueDate.getTime() - currentDate.getTime() < 7*24*60*60*1000) {
+                status = 'due-soon';
+                statusText = 'Due Soon';
+              }
+              
+              this.taxLiabilities.push({
+                id: `estimated-tax-q4-${year}-${this.viewMode}`,
+                name: `Q4 ${year} Estimated Tax`,
+                amount: q4Tax,
+                dueDate: q4DueDate,
+                status: status,
+                statusText: statusText,
+                color: 'rgba(255, 152, 0, 0.6)'
+              });
+            }
+          }
+        });
+      } else if (this.viewMode === 'quarterly' && this.filterQuarter !== 'all') {
+        // 针对特定季度的视图，只添加该季度的估算税
+        const quarter = parseInt(this.filterQuarter);
+        const year = this.filterQuarterYear;
+        
+        // 确定季度税应该的到期日
+        let dueDateMonth, dueDateDay;
+        switch(quarter) {
+          case 1: dueDateMonth = 3; dueDateDay = 15; break; // Q1: April 15
+          case 2: dueDateMonth = 5; dueDateDay = 15; break; // Q2: June 15
+          case 3: dueDateMonth = 8; dueDateDay = 15; break; // Q3: September 15
+          case 4: dueDateMonth = 0; dueDateDay = 15; // Q4: January 15 next year (month 0 = January)
+          break;
+        }
+        
+        const dueDate = quarter === 4 
+          ? new Date(year + 1, dueDateMonth, dueDateDay)
+          : new Date(year, dueDateMonth, dueDateDay);
+        
+        const quarterlyTax = this.calculateEstimatedQuarterlyTax(quarter);
+        if (quarterlyTax > 0) {
+          // 计算状态
+          let status = 'upcoming';
+          let statusText = 'Upcoming';
+          
+          if (dueDate < currentDate) {
+            status = 'overdue';
+            statusText = 'Overdue';
+          } else if (dueDate.getTime() - currentDate.getTime() < 7*24*60*60*1000) {
+            status = 'due-soon';
+            statusText = 'Due Soon';
+          }
+          
+          this.taxLiabilities.push({
+            id: `estimated-tax-q${quarter}-${year}-${this.viewMode}`,
+            name: `Q${quarter} ${year} Estimated Tax`,
+            amount: quarterlyTax,
+            dueDate: dueDate,
+            status: status,
+            statusText: statusText,
+            color: 'rgba(255, 152, 0, 0.6)'
+          });
+        }
+      }
+      
       // 处理现有信用和退税项目，增加利息计算
       this.formData.forEach(form => {
         if (form.status === 'submitted' || form.status === this.FORM_STATUS.SUBMITTED) {
@@ -1385,6 +1576,92 @@ export default {
       this.$nextTick(() => {
         console.log(`税务负债数据更新后检查: 总数=${this.taxLiabilities.length}, 当前显示数=${this.currentTaxLiabilities.length}`);
       });
+      
+      // 检查即将到期的负债，发送通知提醒
+      this.sendUpcomingLiabilitiesNotifications();
+    },
+    
+    // 新增方法：发送税务负债通知
+    sendUpcomingLiabilitiesNotifications() {
+      // 从useAuth获取当前用户信息
+      const currentUser = localStorage.getItem('user');
+      if (!currentUser) {
+        console.log('User not logged in, skipping notifications');
+        return;
+      }
+      
+      const userObj = JSON.parse(currentUser);
+      if (!userObj.isLoggedIn) {
+        console.log('User not logged in, skipping notifications');
+        return;
+      }
+      
+      // 获取用户ID或Email作为唯一标识
+      const userId = userObj.email || 'anonymous';
+      
+      // 检查用户是否是管理员，如果是，则跳过税务提醒
+      if (userObj.isAdmin) {
+        console.log('User is admin, skipping tax liability notifications');
+        return;
+      }
+      
+      // 如果未获取toast或notifications服务，则跳过
+      if (!this.toast || !this.notifications) {
+        console.log('Toast or notification service unavailable, skipping notifications');
+        return;
+      }
+      
+      // 开发环境中检查：跳过发送2025年及以后的未来通知
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      if (this.taxLiabilities.some(l => {
+        const liabilityYear = l.dueDate ? l.dueDate.getFullYear() : 0;
+        return liabilityYear > currentYear + 1; // 跳过超过当前年份+1年的通知
+      })) {
+        console.log('Detected test data with future dates, skipping notifications');
+        return;
+      }
+      
+      // 发送通知前先检查：使用currentTaxLiabilities计算属性获取当前税务负债
+      const liabilities = this.currentTaxLiabilities || [];
+      
+      if (liabilities.length > 0) {
+        // 延迟发送通知
+        setTimeout(() => {
+          // 汇总总金额
+          const totalAmount = liabilities.reduce((sum, item) => sum + item.amount, 0);
+          
+          // 发送汇总通知
+          this.toast.warning(`You have ${liabilities.length} tax ${liabilities.length === 1 ? 'liability' : 'liabilities'} totaling ${this.formatCurrency(totalAmount)}`, {
+            title: 'Tax Liability Alert',
+            duration: 8000
+          });
+          
+          // 添加详细通知到通知中心，包含用户ID
+          liabilities.forEach(liability => {
+            const daysLeft = Math.ceil((liability.dueDate - currentDate) / (24 * 60 * 60 * 1000));
+            const dueText = daysLeft <= 7 
+              ? `due in ${daysLeft} days` 
+              : `due on ${this.formatDate(liability.dueDate)}`;
+            
+            this.notifications.addNotification({
+              userId: userId,
+              title: 'Tax Liability Alert',
+              message: `${liability.name}: ${this.formatCurrency(liability.amount)}, ${dueText}`,
+              time: new Date(),
+              read: false
+            });
+          });
+          
+          // 记录今天已经向该用户发送过提醒
+          const today = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}-${currentDate.getDate()}`;
+          const storageKey = `sentDashboardReminders_${userId}`;
+          const sentDashboardReminders = JSON.parse(localStorage.getItem(storageKey) || '{}');
+          sentDashboardReminders[today] = true;
+          localStorage.setItem(storageKey, JSON.stringify(sentDashboardReminders));
+          console.log(`Tax liability reminders sent to user ${userId} and recorded for today`);
+        }, 1500);
+      }
     },
     
     // Process payment history from form data
@@ -1392,28 +1669,20 @@ export default {
       this.paymentHistory = [];
       console.log("开始处理支付历史...");
       
-      // 调试显示formData的完整内容
-      console.log("表单数据结构:", JSON.stringify(this.formData.slice(0, 2)));
-      
-      // Process form data to find payments
       this.formData.forEach(form => {
-        // 标准化日期格式
         const standardizedDate = this.standardizeDate(form.date);
         if (standardizedDate) {
-          // 用标准化后的日期替换原始日期，确保一致性
           form.standardizedDate = standardizedDate;
         }
         
-        // 检查每个表单的date字段
-        console.log(`检查表单(ID=${form.id})的日期信息:`, {
-          rawDate: form.date,
-          dateType: typeof form.date,
-          standardizedDate: form.standardizedDate ? form.standardizedDate.toISOString() : 'N/A',
-          dateValid: form.standardizedDate ? true : false
-        });
-        
-        // Only include submitted forms
         if (form.status === 'submitted' || form.status === this.FORM_STATUS.SUBMITTED) {
+          // 新增：如果表单类型是 'credit' 或 'refund'，则不在支付历史中显示，这些将显示在 Outstanding Items 中
+          const declType = form.declarationType || form.declaration_type;
+          if (declType === 'credit' || declType === 'refund') {
+            console.log(`表单 ${form.id} 类型为 ${declType}，将不在 Financial Transactions History 中显示，改在 Financial Items & Tax Estimates 中显示。`);
+            return; // 跳过添加到 paymentHistory
+          }
+
           // 跳过不在当前过滤范围内的数据
           if (form.standardizedDate) {
             const formYear = form.standardizedDate.getFullYear();
@@ -1505,7 +1774,8 @@ export default {
           if (form.declarationType === 'income') {
             transactionType = 'Income';
           } else if (form.declarationType === 'credit') {
-            transactionType = 'Tax Refund/Reimbursement';
+            // 只在Financial Transactions History中显示Credit类型，不在Outstanding Items中显示
+            transactionType = 'Tax Credit';
           } else if (form.declarationType === 'deduction') {
             transactionType = 'Deductible Expense';
           } else if (form.declarationType === 'investment') {
@@ -1514,6 +1784,8 @@ export default {
             transactionType = flowType;
           }
           
+          // 避免在收入历史中重复添加已在Outstanding Items中显示的Credit类型表单
+          // Credit类型的表单只显示在Financial Transactions History中
           this.paymentHistory.push({
             id: form.id,
             date: form.standardizedDate || new Date(), // 使用标准化后的日期
@@ -1561,53 +1833,38 @@ export default {
     processOutstandingItems() {
       this.outstandingItems = [];
       
-      // Get outstanding credits and debits from filtered form data
-      // First, get all deduction forms that have been submitted
       this.formData.forEach(form => {
-        // Only include submitted forms
         if (form.status === 'submitted' || form.status === this.FORM_STATUS.SUBMITTED) {
-          // 标准化日期
           const standardizedDate = this.standardizeDate(form.date);
           
-          // Skip data outside current filter range
           if (standardizedDate) {
             const formYear = standardizedDate.getFullYear();
             const formMonth = standardizedDate.getMonth();
             const formQuarter = Math.floor(formMonth / 3) + 1;
             
-            // 检查是否在筛选范围内
             if (this.viewMode === 'yearly') {
-              // Check if year is within selected range
               if (formYear < this.filterStartYear || formYear > this.filterEndYear) {
-                return; // Skip if not in year range
+                return;
               }
             } else if (this.viewMode === 'quarterly') {
-              // 季度视图: 检查年份和季度
               if (formYear !== this.filterQuarterYear) {
-                return; // Skip if not in selected year
+                return;
               }
-              
-              // If specific quarter is selected, check if matches
               if (this.filterQuarter !== 'all' && formQuarter.toString() !== this.filterQuarter) {
-                return; // Skip if not in selected quarter
+                return;
               }
             }
           } else {
-            // Skip items with invalid dates when filtering
             if (this.viewMode === 'quarterly' && this.filterQuarter !== 'all') {
               return;
             }
           }
           
-          // Add deductions as credits (they reduce tax liability)
           if (form.declarationType === 'deduction' || form.declaration_type === 'deduction') {
             const deductionType = form.deductionType || 'BUSINESS_EXPENSE';
             const deductibleAmount = this.calculateDeduction(form.price || 0, deductionType);
-            
-            // Create description with type information
             const deductionLabel = this.getTypeLabel(deductionType, 'DEDUCTION');
             const description = `${deductionLabel}: ${form.declarationName || 'Tax Deduction'}`;
-            
             this.outstandingItems.push({
               id: form.id,
               type: 'Credit',
@@ -1615,18 +1872,14 @@ export default {
               amount: deductibleAmount,
               category: 'DEDUCTION',
               itemType: deductionType,
-              date: form.date
+              date: form.standardizedDate || form.date // Prefer standardized, fallback to original
             });
           }
-          
-          // Add credits (refunds, reimbursements)
+          // 恢复将 'credit' (如退税) 类型表单添加到 outstandingItems 的逻辑
           else if (form.declarationType === 'credit' || form.declaration_type === 'credit') {
-            const creditType = form.creditType || 'REFUND';
-            
-            // Create description with type information
+            const creditType = form.creditType || 'REFUND'; 
             const creditLabel = this.getTypeLabel(creditType, 'CREDIT');
             const description = `${creditLabel}: ${form.declarationName || 'Tax Credit'}`;
-            
             this.outstandingItems.push({
               id: form.id,
               type: 'Credit',
@@ -1634,26 +1887,34 @@ export default {
               amount: form.price || 0,
               category: 'CREDIT',
               itemType: creditType,
-              date: form.date
+              date: form.standardizedDate || form.date // Prefer standardized, fallback to original
             });
             
-            // Add projected interest if applicable
-            const interestAmount = this.calculateCreditInterest(form.price || 0, creditType);
-            if (interestAmount > 0) {
-              this.outstandingItems.push({
-                id: `${form.id}-interest`,
-                type: 'Credit',
-                description: `Projected Interest on ${creditLabel}`,
-                amount: interestAmount,
-                category: 'INTEREST',
-                itemType: creditType,
-                date: form.date
-              });
-            }
+            // 暂时不在此处重复计算和添加预计利息，因为利息的预计已经统一在 processTaxLiabilities 中处理并可能显示在 Current Tax Liabilities
+            // 或者利息的逻辑可以更清晰地分离
           }
         }
       });
       
+      // 添加现有税务负债到Outstanding Items，确保与Current Tax Liabilities保持一致
+      // 这样避免了用户看到两个不同的值
+      this.taxLiabilities.forEach(liability => {
+        // 只添加实际的税务负债(不包括负值的收益项)，避免重复
+        if (liability.amount > 0 && liability.name.includes('Estimated Tax')) {
+          this.outstandingItems.push({
+            id: `outstanding-${liability.id}`,
+            type: 'Debit',
+            description: liability.name,
+            amount: liability.amount,
+            category: 'TAX',
+            itemType: 'QUARTERLY',
+            date: liability.dueDate
+          });
+        }
+      });
+      
+      // 排除旧的独立计算的季度估算税方法，使用taxLiabilities中的数据代替
+      /*
       // Add estimated quarterly tax payments
       const currentYear = new Date().getFullYear();
       
@@ -1715,6 +1976,7 @@ export default {
           });
         }
       }
+      */
       
       // Sort by date (most recent first)
       this.outstandingItems.sort((a, b) => {
@@ -1845,10 +2107,9 @@ export default {
           labels.push(y.toString());
         }
       } else {
-        // For quarterly view, use quarters as labels
-        const currentYear = new Date().getFullYear();
+        // For quarterly view, use quarters as labels (without year)
         for (let q = 1; q <= 4; q++) {
-          labels.push(`Q${q} ${currentYear}`);
+          labels.push(`Q${q}`);
         }
       }
       
@@ -1915,7 +2176,7 @@ export default {
               },
               title: {
                 display: true,
-                text: this.viewMode === 'yearly' ? 'Income Breakdown by Year' : 'Income Breakdown by Quarter'
+                text: this.viewMode === 'yearly' ? 'Income Breakdown by Year' : `Income Breakdown by Quarter (${this.filterQuarterYear})`
               }
             }
           }
@@ -1992,7 +2253,7 @@ export default {
               },
               title: {
                 display: true,
-                text: this.viewMode === 'yearly' ? 'Financial Trends by Year' : 'Financial Trends by Quarter'
+                text: this.viewMode === 'yearly' ? 'Financial Trends by Year' : `Financial Trends by Quarter (${this.filterQuarterYear})`
               }
             }
           }
@@ -2086,42 +2347,118 @@ export default {
         labels.forEach(period => {
           periodData[period] = {
             income: 0,
-            expense: 0
+            expense: 0,
+            credit: 0,
+            debit: 0,
+            // taxRefund: 0, // 移除 taxRefund，合并到 credit
+            taxLiability: 0 
           };
         });
         
-        // 累加收入和支出数据
-        itemsToProcess.forEach(item => {
-          // 确保有有效的日期对象
+        // 处理 paymentHistory，区分 income 和 credit (如 tax refund)
+        this.paymentHistory.forEach(item => {
           if (!item.date || !(item.date instanceof Date)) {
-            console.warn(`跳过财务趋势项 ${item.id}: 无效日期`);
+            console.warn(`跳过财务趋势项 (paymentHistory ${item.id}): 无效日期`);
             return;
           }
           
           const itemDate = item.date;
           const year = itemDate.getFullYear();
           
-          // 跳过不在过滤范围内的数据
           if (this.viewMode === 'yearly' && (year < this.filterStartYear || year > this.filterEndYear)) {
             return;
           }
           
-          // 确定期间(年份或季度)
           const quarter = Math.floor(itemDate.getMonth() / 3) + 1;
           const periodKey = this.viewMode === 'yearly' ? year : `Q${quarter}`;
           
-          // 确保此期间存在
           if (!periodData[periodKey]) {
-            periodData[periodKey] = { income: 0, expense: 0 };
+            periodData[periodKey] = { income: 0, expense: 0, credit: 0, debit: 0, taxLiability: 0 };
           }
           
-          // 累加金额
           const amount = Math.abs(item.amount || 0);
-          if (item.trendType === 'INCOME') {
-            periodData[periodKey].income += amount;
-          } else if (item.trendType === 'EXPENSE') {
-            periodData[periodKey].expense += amount;
+          if (item.formData) {
+            const declType = item.formData.declarationType || item.formData.declaration_type;
+            if (declType === 'income') {
+              periodData[periodKey].income += amount;
+            } else if (declType === 'credit' || declType === 'refund') { // Tax refunds and other direct credits
+              periodData[periodKey].credit += amount;
+            } else if (item.type === 'debit' || declType === 'deduction' || declType === 'tax' || declType === 'liability') {
+              periodData[periodKey].expense += amount; // Expenses, deductions, tax payments, liabilities treated as expense flow for chart
+            }
+          } else if (item.type === 'debit') { // Fallback for items without formData if they are debits
+             periodData[periodKey].expense += amount;
+          } else if (item.type === 'credit') { // Fallback for general credits without specific formData declarationType
+             // If it's a credit from paymentHistory without formData, decide if it's income-like or credit-like.
+             // For now, let's assume general credits from payment history (if not 'income' declType) are credit-like.
+             periodData[periodKey].credit += amount;
           }
+        });
+        
+        // 处理Financial Items & Tax Estimates数据(outstandingItems)
+        this.outstandingItems.forEach(item => {
+          let itemDate = null;
+          if (item.date) {
+            itemDate = item.date instanceof Date ? item.date : this.standardizeDate(item.date);
+          } else {
+            itemDate = new Date(); // Fallback, though ideally all items should have dates
+          }
+          
+          if (!itemDate || isNaN(itemDate.getTime())) {
+            console.warn(`跳过Outstanding项 ${item.description}: 无效日期`);
+            return;
+          }
+          
+          const year = itemDate.getFullYear();
+          
+          if (this.viewMode === 'yearly' && (year < this.filterStartYear || year > this.filterEndYear)) {
+            return;
+          }
+          
+          const quarter = Math.floor(itemDate.getMonth() / 3) + 1;
+          const periodKey = this.viewMode === 'yearly' ? year : `Q${quarter}`;
+          
+          if (!periodData[periodKey]) {
+            periodData[periodKey] = { income: 0, expense: 0, credit: 0, debit: 0, taxLiability: 0 };
+          }
+          
+          const amount = Math.abs(item.amount || 0);
+          if (item.type === 'Credit') {
+            periodData[periodKey].credit += amount; // Sums with credits from paymentHistory
+          } else if (item.type === 'Debit') {
+            // Debits from outstandingItems are typically future obligations or estimates not yet paid.
+            // For 'Net Financial Position', these are 'debits'.
+            // For 'Total Expenses' line, we should be careful not to double count if also in paymentHistory.
+            // The 'Total Expenses' line is derived from paymentHistory (actual outflows).
+            // So, outstanding 'Debit' items should primarily affect 'debit' for Net Financial Position,
+            // and the 'Tax Liabilities' line if they are 'TAX' category.
+            periodData[periodKey].debit += amount;
+          }
+        });
+        
+        // 使用taxLiabilities数据生成更准确的税务负债趋势 (已过滤掉 'estimated tax')
+        const taxLiabilityTrends = this.taxLiabilities.filter(liability => 
+          liability.amount > 0 && 
+          liability.dueDate instanceof Date &&
+          !liability.name.toLowerCase().includes('estimated tax') 
+        );
+        
+        taxLiabilityTrends.forEach(liability => {
+          const itemDate = liability.dueDate;
+          const year = itemDate.getFullYear();
+          
+          if (this.viewMode === 'yearly' && (year < this.filterStartYear || year > this.filterEndYear)) {
+            return;
+          }
+          
+          const quarter = Math.floor(itemDate.getMonth() / 3) + 1;
+          const periodKey = this.viewMode === 'yearly' ? year : `Q${quarter}`;
+          
+          if (!periodData[periodKey]) {
+            periodData[periodKey] = { income: 0, expense: 0, credit: 0, debit: 0, taxLiability: 0 };
+          }
+          
+          periodData[periodKey].taxLiability = (periodData[periodKey].taxLiability || 0) + liability.amount;
         });
         
         // 创建总收入数据集
@@ -2152,15 +2489,52 @@ export default {
           pointRadius: 4
         });
         
-        // 创建净收益数据集
+        // 创建税务信用(Credit)数据集
+        const creditData = labels.map(period => periodData[period]?.credit || 0);
+        datasets.push({
+          label: 'Tax Credits & Deductions',
+          data: creditData,
+          backgroundColor: 'rgba(156, 39, 176, 0.2)',
+          borderColor: 'rgba(156, 39, 176, 1)',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: false,
+          pointBackgroundColor: 'rgba(156, 39, 176, 1)',
+          pointRadius: 4,
+          pointStyle: 'triangle'
+        });
+        
+        // 创建税务欠款(Debit)数据集 - 使用直接从taxLiabilities获取的数据
+        const taxLiabilityData = labels.map(period => periodData[period]?.taxLiability || 0);
+        const hasLiabilityData = taxLiabilityData.some(amount => amount > 0);
+        const debitData = labels.map(period => periodData[period]?.debit || 0);
+        
+        datasets.push({
+          label: 'Tax Liabilities',
+          data: hasLiabilityData ? taxLiabilityData : debitData,
+          backgroundColor: 'rgba(255, 152, 0, 0.2)',
+          borderColor: 'rgba(255, 152, 0, 1)',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: false,
+          pointBackgroundColor: 'rgba(255, 152, 0, 1)',
+          pointRadius: 4,
+          pointStyle: 'rect'
+        });
+        
+        // 创建净收益数据集 (已包含所有Credit和Debit)
         const netIncomeData = labels.map(period => {
           const income = periodData[period]?.income || 0;
           const expense = periodData[period]?.expense || 0;
-          return income - expense;
+          const credit = periodData[period]?.credit || 0;
+          const debit = periodData[period]?.debit || 0;
+          // const taxRefund = periodData[period]?.taxRefund || 0; // taxRefund is now part of credit
+          const taxLiability = periodData[period]?.taxLiability || 0; 
+          return (income + credit) - (expense + debit + taxLiability); // Updated formula
         });
         
         datasets.push({
-          label: 'Net Income',
+          label: 'Net Financial Position',
           data: netIncomeData,
           backgroundColor: 'rgba(33, 150, 243, 0.2)',
           borderColor: 'rgba(33, 150, 243, 1)',
@@ -2169,8 +2543,7 @@ export default {
           fill: false,
           pointBackgroundColor: 'rgba(33, 150, 243, 1)',
           pointRadius: 5,
-          pointHoverRadius: 7,
-          borderDash: []
+          pointHoverRadius: 7
         });
         
         console.log('Financial trend datasets prepared:', datasets.map(d => d.label));
@@ -2652,22 +3025,89 @@ export default {
     exportAsPDF() {
       // Dynamically load jsPDF library from CDN
       if (!window.jspdf) {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-        script.async = true;
-        script.onload = this.generatePDF;
-        document.head.appendChild(script);
-        
-        // Also load autoTable plugin
-        const autoTableScript = document.createElement('script');
-        autoTableScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js';
-        autoTableScript.async = true;
-        document.head.appendChild(autoTableScript);
-        
-        // Show loading message
-        alert('Preparing PDF generator. If this is your first time exporting a PDF, this might take a moment. Click OK and wait for the download to start.');
+        try {
+          // Show loading message
+          alert('Preparing PDF generator. This might take a moment. Click OK and wait for the download to start.');
+          
+          // First load the main jsPDF library
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+          script.async = true;
+          
+          // Use a Promise to track loading
+          const jspdfLoaded = new Promise((resolve, reject) => {
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('Failed to load jsPDF library'));
+          });
+          
+          document.head.appendChild(script);
+          
+          // When jsPDF is loaded, then load the autoTable plugin
+          jspdfLoaded.then(() => {
+            // Ensure jsPDF is available
+            if (!window.jspdf) {
+              throw new Error('jsPDF failed to initialize properly');
+            }
+            
+            console.log('jsPDF loaded successfully, loading autoTable plugin');
+            
+            // Now load the autoTable plugin
+            const autoTableScript = document.createElement('script');
+            autoTableScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js';
+            autoTableScript.async = true;
+            
+            // Return a new promise for autoTable loading
+            return new Promise((resolve, reject) => {
+              autoTableScript.onload = resolve;
+              autoTableScript.onerror = () => reject(new Error('Failed to load autoTable plugin'));
+              document.head.appendChild(autoTableScript);
+            });
+          })
+          .then(() => {
+            // Both libraries should be loaded, give a moment for initialization
+            console.log('AutoTable plugin loaded, waiting for initialization');
+            return new Promise(resolve => setTimeout(resolve, 1000));
+          })
+          .then(() => {
+            // Verify that jsPDF object exists and has autoTable method attached
+            if (!window.jspdf) {
+              throw new Error('jsPDF library not found after loading');
+            }
+            
+            // Create a test instance to verify autoTable is attached
+            const { jsPDF } = window.jspdf;
+            const testDoc = new jsPDF();
+            
+            if (typeof testDoc.autoTable !== 'function') {
+              throw new Error('autoTable plugin not properly initialized');
+            }
+            
+            console.log('All PDF libraries successfully loaded and initialized');
+            this.generatePDF();
+          })
+          .catch(error => {
+            console.error('Error loading PDF libraries:', error);
+            alert('Failed to load PDF generation libraries: ' + error.message + '\nPlease try using CSV format instead.');
+          });
+        } catch (error) {
+          console.error('Error in PDF export setup:', error);
+          alert('Failed to initialize PDF export: ' + error.message + '\nPlease try the CSV option instead.');
+        }
       } else {
-        this.generatePDF();
+        // Verify autoTable is available before proceeding
+        try {
+          const { jsPDF } = window.jspdf;
+          const testDoc = new jsPDF();
+          
+          if (typeof testDoc.autoTable !== 'function') {
+            throw new Error('autoTable plugin not properly initialized');
+          }
+          
+          this.generatePDF();
+        } catch (error) {
+          console.error('Error checking PDF libraries:', error);
+          alert('PDF export unavailable: ' + error.message + '\nPlease try using CSV format instead.');
+        }
       }
     },
     
@@ -2676,7 +3116,16 @@ export default {
       try {
         // Create new PDF document
         const { jsPDF } = window.jspdf;
+        if (!jsPDF) {
+          throw new Error('jsPDF constructor not found');
+        }
+        
         const doc = new jsPDF();
+        
+        // Verify autoTable is available
+        if (typeof doc.autoTable !== 'function') {
+          throw new Error('autoTable plugin not properly initialized');
+        }
         
         // Add title
         doc.setFontSize(18);
@@ -2812,7 +3261,7 @@ export default {
         doc.save(filename);
       } catch (error) {
         console.error('Error generating PDF:', error);
-        alert('Failed to generate PDF. Please try again or use CSV format instead.');
+        alert('Failed to generate PDF. Please try again or use CSV format instead. Error: ' + error.message);
       }
     }
   },
@@ -2873,6 +3322,7 @@ export default {
           !liability.name.toLowerCase().includes('projected') &&
           !liability.name.toLowerCase().includes('interest') &&
           !liability.name.toLowerCase().includes('return') &&
+          !liability.name.toLowerCase().includes('estimated tax') && // 新增：排除预估税款
           liability.amount > 0; // 金额为正，表示需要支付的税款
         
         // 确保是未来或当前需要支付的项目
@@ -2908,9 +3358,14 @@ export default {
       return this.outstandingItems.reduce((sum, item) => {
         if (item.type === 'Credit') {
           return sum + item.amount;
-        } else {
-          return sum - item.amount;
+        } else if (item.type === 'Debit') {
+          // 新增条件：如果这个Debit项是预估税（通过description判断），则不计入netOutstandingAmount的计算
+          if (item.description && item.description.toLowerCase().includes('estimated tax')) {
+            return sum; // 保持sum不变，即不减去这个预估税的金额
+          }
+          return sum - item.amount; // 其他非预估的Debit项正常减去
         }
+        return sum; // 对于其他类型（如果有的话），保持sum不变
       }, 0);
     },
     // 计算净税务状况（所有Tax Liabilities中的收入减去支出）
@@ -3567,28 +4022,34 @@ button {
 /* View toggle buttons */
 .view-toggle {
   display: flex;
-  justify-content: center;
-  margin-top: 1rem;
+  justify-content: space-between;
+  margin-top: auto;
+  width: 100%;
 }
 
 .view-btn {
-  padding: 8px 15px;
+  flex: 1;
+  padding: 8px 0;
   background-color: #f1f1f1;
   border: 1px solid #ddd;
   color: #333;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  text-align: center;
+  min-width: 0;
 }
 
 .view-btn:first-child {
   border-top-left-radius: 5px;
   border-bottom-left-radius: 5px;
+  border-right: none;
 }
 
 .view-btn:last-child {
   border-top-right-radius: 5px;
   border-bottom-right-radius: 5px;
+  border-left: none;
 }
 
 .view-btn.active {

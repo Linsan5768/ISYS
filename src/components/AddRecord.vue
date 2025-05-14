@@ -366,6 +366,7 @@
 import axios from 'axios'
 import flatpickr from "flatpickr"
 import "flatpickr/dist/flatpickr.min.css"
+import { inject } from 'vue'
 
 // Form status constants
 const FORM_STATUS = {
@@ -378,6 +379,7 @@ export default {
   name: "AddRecord",
   data() {
     return {
+      toast: null,
       form: {
         id: `temp-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
         date: '',
@@ -387,7 +389,7 @@ export default {
         price: 0,
         otherInfo: '',
         status: '', // Track form status
-        // 新增的税务分类字段
+        // Tax classification fields
         incomeType: '',
         creditType: '',
         deductionType: '',
@@ -399,34 +401,34 @@ export default {
       formattedPrice: "",
       declarationTypes: [],
       individualDeclarationTypes: [
-        { id: 'income', name: 'Income (收入) - 薪资、投资收益等' },
-        { id: 'deduction', name: 'Deduction (扣除) - 可抵税的支出' },
-        { id: 'credit', name: 'Credit (退税/报销) - 税务返还等' },
-        { id: 'investment', name: 'Investment (投资) - 投资支出' }
+        { id: 'income', name: 'Income - Salary, investment returns, etc.' },
+        { id: 'deduction', name: 'Deduction - Tax-deductible expenses' },
+        { id: 'credit', name: 'Credit - Tax refunds, etc.' },
+        { id: 'investment', name: 'Investment - Investment expenses' }
       ],
       businessDeclarationTypes: [
-        { id: 'income', name: 'Income (收入) - 销售、服务收入等' },
-        { id: 'expense', name: 'Expense (支出) - 经营相关费用' },
-        { id: 'asset', name: 'Asset (资产) - 企业资产购入' },
-        { id: 'liability', name: 'Liability (负债) - 贷款及负债' },
-        { id: 'tax', name: 'Tax (税金) - 税务支付' }
+        { id: 'income', name: 'Income - Sales, service revenue, etc.' },
+        { id: 'expense', name: 'Expense - Business-related expenses' },
+        { id: 'asset', name: 'Asset - Business asset purchases' },
+        { id: 'liability', name: 'Liability - Loans and liabilities' },
+        { id: 'tax', name: 'Tax - Tax payments' }
       ],
       // 新增的分类选项
       incomeTypes: [
-        { id: 'SALARY', name: 'Salary (薪资) - 个人工资收入' },
-        { id: 'INVESTMENT', name: 'Investment (投资收益) - 股息、利息等' },
-        { id: 'BUSINESS', name: 'Business (商业收入) - 经营所得' },
-        { id: 'OTHER', name: 'Other (其他收入) - 其他各类收入' }
+        { id: 'SALARY', name: 'Salary - Personal wage income' },
+        { id: 'INVESTMENT', name: 'Investment - Dividends, interest, etc.' },
+        { id: 'BUSINESS', name: 'Business - Business income' },
+        { id: 'OTHER', name: 'Other - Other types of income' }
       ],
       creditTypes: [
-        { id: 'REFUND', name: 'Tax Refund (退税) - 税务退款' },
-        { id: 'REIMBURSEMENT', name: 'Reimbursement (报销) - 费用报销' }
+        { id: 'REFUND', name: 'Tax Refund - Tax refunds' },
+        { id: 'REIMBURSEMENT', name: 'Reimbursement - Expense reimbursements' }
       ],
       deductionTypes: [
-        { id: 'BUSINESS_EXPENSE', name: 'Business Expense (商业支出) - 100%可抵扣' },
-        { id: 'EDUCATION', name: 'Education (教育支出) - 50%可抵扣' },
-        { id: 'CHARITY', name: 'Charity (慈善捐款) - 100%可抵扣' },
-        { id: 'MEDICAL', name: 'Medical (医疗支出) - 80%可抵扣' }
+        { id: 'BUSINESS_EXPENSE', name: 'Business Expense - 100% deductible' },
+        { id: 'EDUCATION', name: 'Education - 50% deductible' },
+        { id: 'CHARITY', name: 'Charity - 100% deductible' },
+        { id: 'MEDICAL', name: 'Medical - 80% deductible' }
       ],
       loading: false,
       validationError: '',
@@ -450,6 +452,13 @@ export default {
     mode: {
       type: String,
       default: 'edit' // 'edit' or 'view'
+    }
+  },
+  created() {
+    this.toast = inject('toast') || {
+      success: msg => console.log('Toast success:', msg),
+      error: msg => console.error('Toast error:', msg),
+      info: msg => console.info('Toast info:', msg)
     }
   },
   methods: {
@@ -528,7 +537,7 @@ export default {
       const submitWithRetry = async () => {
         try {
           console.log("Submitting form data:", {
-            date: this.form.date,
+          date: this.form.date,
             declaration_type: this.form.declarationType,
             address: this.form.address,
             declaration_name: this.form.declarationName,
@@ -548,174 +557,68 @@ export default {
             form_id: this.form.id
           });
           
-          console.log("API response:", res);
-          
-          // Set status to submitted
-          this.form.status = FORM_STATUS.SUBMITTED;
-          
-          // Get the database-generated ID from the response
-          if (res.data && res.data.success) {
-            const dbGeneratedId = res.data.id;
-            // 记录下临时ID和真实ID的映射关系，以便更新localStorage中的数据
-            const tempId = this.form.id;
+          if (res.data.success) {
+            // Update the form with the server-assigned ID if provided
+            if (res.data.form_id) {
+              this.form.id = res.data.form_id;
+            }
             
-            // Update the form with the database ID
-            this.form.id = dbGeneratedId;
-            
-            console.log(`表单ID已更新: 临时ID ${tempId} -> 数据库ID ${dbGeneratedId}`);
-          } else {
-            console.warn("提交成功但未收到数据库ID");
-          }
-          
-          // Store form with status in saved forms
-          this.storeFormWithStatus();
-          
-          alert("Form submitted successfully!");
-          
-          // Redirect to form history page
-          this.$router.push('/form-history');
-          return true;
-      } catch (err) {
-          console.error("Form submission error:", err);
-          
-          // Check if it's a database lock error
-          const isDbLockError = 
-            err.response?.data?.error?.includes("database is locked") || 
-            err.message?.includes("database is locked");
-            
-          // If it's a database lock error and we haven't exceeded max retries
-          if (isDbLockError && retryCount < maxRetries) {
-            retryCount++;
-            const waitTime = 1000 * retryCount; // Exponential backoff: 1s, 2s, 3s
-            this.validationError = `Database is busy. Retrying in ${waitTime/1000} seconds... (Attempt ${retryCount}/${maxRetries})`;
-            
-            console.log(`Database locked, retrying in ${waitTime}ms (Attempt ${retryCount}/${maxRetries})`);
-            
-            // Wait and retry
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            return await submitWithRetry();
-          }
-          
-          // Set status to failed
-          this.form.status = FORM_STATUS.FAILED;
-          
-          // Store form with failed status
-          this.storeFormWithStatus();
-          
-          // Log error details
-          if (err.response) {
-            console.error("Error response data:", err.response.data);
-          } else if (err.request) {
-            console.error("No response received:", err.request);
-          } else {
-            console.error("Request error:", err.message);
-          }
-          
-          // Development mode - simulate success
-          // Remove this code segment in production
-          if (process.env.NODE_ENV === 'development') {
-            alert("Development mode: Form submission simulated");
-            console.log("Development mode: Submission success simulated");
-            
-            // Override status for development testing
+            // 设置为已提交状态
             this.form.status = FORM_STATUS.SUBMITTED;
-            
-            // Simulate a proper database ID (for development only)
-            this.form.id = this.form.id || `db-${Date.now()}`;
             this.storeFormWithStatus();
             
-            // Redirect to form history page
+            // 显示成功信息，使用注入的toast服务
+            this.toast.success('Form submitted successfully!');
+            
+            // 发出表单提交事件
+            this.$emit('form-submitted', this.form);
+            
+            // 重定向到表单历史页面
             this.$router.push('/form-history');
-            return true;
-          }
-          
-          // Show a more specific error message
-          if (isDbLockError) {
-            this.validationError = "The database is currently busy. Please try again in a few moments.";
-            // Save as draft automatically
-            await this.saveAndExit();
-            alert("Your form has been saved as a draft. You can try submitting it again later.");
           } else {
-            this.validationError = "Failed to submit form: " + (err.response?.data?.error || err.message || "Unknown error");
+            throw new Error(res.data.message || "Form submission failed");
+          }
+        } catch (error) {
+          console.error("Error submitting form:", error);
+          
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`Retry attempt ${retryCount}...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return submitWithRetry();
           }
           
-          return false;
+          // 将表单标记为提交失败
+          this.form.status = FORM_STATUS.FAILED;
+          this.storeFormWithStatus();
+          
+          // 显示错误信息，使用注入的toast服务
+          this.toast.error('Form submission failed. Please try again later.');
+          
+          // 发出表单错误事件
+          this.$emit('form-error', error.message || 'Unknown error');
+          
+          this.validationError = "Failed to submit form. The data has been saved locally.";
+      } finally {
+          this.loading = false;
         }
       };
       
-      try {
-        await submitWithRetry();
-      } finally {
-        this.loading = false;
-      }
+      await submitWithRetry();
     },
-    async saveAndExit() {
-      // Set status to draft
-      this.form.status = FORM_STATUS.DRAFT;
-      
-      try {
-        this.loading = true;
-        
-        // 确保表单有一个临时ID
-        if (!this.form.id) {
-          this.form.id = `temp-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-        }
-        
-        console.log("Saving draft to server:", {
-          date: this.form.date,
-          declaration_type: this.form.declarationType,
-          address: this.form.address,
-          declaration_name: this.form.declarationName,
-          price: this.form.price,
-          other_info: this.form.otherInfo,
-          status: 'draft',
-          form_id: this.form.id // 传递表单ID，可能是临时ID
-        });
-        
-        // 保存草稿到数据库
-        const res = await axios.post("/api/save_draft", {
-          date: this.form.date,
-          declaration_type: this.form.declarationType,
-          address: this.form.address,
-          declaration_name: this.form.declarationName,
-          price: this.form.price,
-          other_info: this.form.otherInfo,
-          status: 'draft',
-          form_id: this.form.id // 如果是更新现有草稿
-        });
-        
-        console.log("Draft save response:", res);
-        
-        // 使用从服务器返回的ID更新表单
-        if (res.data && res.data.success) {
-          const dbGeneratedId = res.data.id;
-          // 记录下临时ID和真实ID的映射关系
-          const tempId = this.form.id;
-          
-          // 更新表单ID为数据库生成的ID
-          this.form.id = dbGeneratedId;
-          
-          console.log(`表单ID已更新: 临时ID ${tempId} -> 数据库ID ${dbGeneratedId}`);
-        } else {
-          console.warn("保存成功但未收到数据库ID");
-        }
-        
-        // 同时保存到localStorage作为备份
+    saveAndExit() {
+      // Save the current form state and navigate away
+      if (this.validateForm(false)) {
+        this.form.status = FORM_STATUS.DRAFT;
         this.storeFormWithStatus();
         
-        alert("Form saved as draft");
-        // 重定向到表单历史页面
-        this.$router.push('/form-history');
-      } catch (err) {
-        console.error("Error saving draft:", err);
+        // 显示成功信息，使用注入的toast服务
+        this.toast.success('Form saved as draft.');
         
-        // 如果API调用失败，仍然保存到localStorage
-        this.storeFormWithStatus();
+        // 发出表单保存事件
+        this.$emit('form-saved', this.form);
         
-        alert("Failed to save to server. Draft saved locally.");
         this.$router.push('/form-history');
-      } finally {
-        this.loading = false;
       }
     },
     storeFormWithStatus() {
@@ -872,25 +775,93 @@ export default {
       const formId = this.formId || this.$route.query.id;
       const mode = this.mode || this.$route.query.mode || 'edit';
       
-      console.log(`加载表单，ID: ${formId}, 模式: ${mode}, Props: viewMode=${this.viewMode}`);
+      console.log(`Loading form, ID: ${formId}, Mode: ${mode}, Props: viewMode=${this.viewMode}`);
       
       if (!formId) return;
       
       try {
-        // Load all forms
+        // 首先检查localStorage中是否有完整的表单数据
+        const viewFormData = localStorage.getItem('viewForm');
+        if (viewFormData) {
+          try {
+            const savedForm = JSON.parse(viewFormData);
+            if (savedForm && (savedForm.id.toString() === formId.toString() || savedForm.displayId === formId)) {
+              console.log("从viewForm数据加载表单:", savedForm);
+              this.form = { ...savedForm };
+              this.formattedPrice = savedForm.formattedPrice || 
+                (savedForm.price ? `${parseFloat(savedForm.price).toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                })} AUD` : "");
+              
+              // 检查表单是否已提交
+              const isSubmitted = 
+                this.form.status === 'SUBMITTED' || 
+                this.form.status === 'Submitted' || 
+                this.form.status === 'submitted' ||
+                (this.form.originalStatus && 
+                ['submitted', 'Submitted', 'SUBMITTED'].includes(this.form.originalStatus));
+              
+              // 根据模式设置表单状态
+              if (mode === 'view') {
+                // 标准只读模式 - 不可编辑
+                console.log(`设置表单为完全只读模式: mode=${mode}`);
+                this.isReadOnly = true;
+                this.isReviewMode = true;
+              } else if (mode === 'editable') {
+                // 可编辑查看模式 - 可编辑但保持在查看界面
+                console.log(`设置表单为可编辑查看模式: mode=${mode}`);
+                this.isReadOnly = false;
+                this.isReviewMode = true;
+              } else if (mode === 'edit') {
+                // 完全编辑模式
+                console.log(`设置表单为完全编辑模式: mode=${mode}`);
+                this.isReadOnly = false;
+                this.isReviewMode = false;
+              } else if (isSubmitted || this.viewMode === true) {
+                // 已提交表单或显式viewMode=true，设为只读
+                console.log(`基于状态设置为只读模式: isSubmitted=${isSubmitted}, viewMode=${this.viewMode}`);
+                this.isReadOnly = true;
+                this.isReviewMode = true;
+              }
+              
+              // 获取用户角色以设置声明类型
+              this.getUserRole();
+              
+              // 清除缓存的表单数据
+              localStorage.removeItem('viewForm');
+              
+              return; // 已成功加载表单，退出方法
+            }
+          } catch (e) {
+            console.error("解析viewForm数据时出错:", e);
+          }
+        }
+        
+        // 如果没有找到viewForm数据，尝试从保存的表单中查找
         const savedFormsData = localStorage.getItem('taxForms');
         if (savedFormsData) {
           const forms = JSON.parse(savedFormsData);
-          const formToLoad = forms.find(f => f.id.toString() === formId.toString());
+          const formToLoad = forms.find(f => 
+            f.id.toString() === formId.toString() || 
+            (f.numeric_id && f.numeric_id.toString() === formId.toString()) ||
+            (f.displayId && f.displayId.toString() === formId.toString())
+          );
           
           if (formToLoad) {
-            console.log(`已找到表单: ID=${formToLoad.id}, 状态=${formToLoad.status}`);
+            console.log(`找到表单: ID=${formToLoad.id}, 状态=${formToLoad.status}`);
             
-            // Load the form data
+            // 加载表单数据
             this.form = { ...formToLoad };
             this.formattedPrice = this.form.formattedPrice || '';
+            if (!this.formattedPrice && this.form.price) {
+              this.formattedPrice = `${parseFloat(this.form.price).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+              })} AUD`;
+            }
             
-            // 检查是否为已提交表单
+            // 检查表单是否已提交
             const isSubmitted = 
               this.form.status === 'SUBMITTED' || 
               this.form.status === 'Submitted' || 
@@ -898,21 +869,69 @@ export default {
               (this.form.originalStatus && 
                ['submitted', 'Submitted', 'SUBMITTED'].includes(this.form.originalStatus));
             
-            // 如果是view模式或表单已提交，设置为只读模式
-            if (mode === 'view' || isSubmitted || this.viewMode === true) {
-              console.log(`设置表单为只读模式: mode=${mode}, isSubmitted=${isSubmitted}, viewMode=${this.viewMode}`);
+            // 根据模式设置表单状态
+            if (mode === 'view') {
+              // 标准只读模式 - 不可编辑
+              this.isReadOnly = true;
+              this.isReviewMode = true;
+            } else if (mode === 'editable') {
+              // 可编辑查看模式 - 可编辑但保持在查看界面
+              this.isReadOnly = false;
+              this.isReviewMode = true;
+            } else if (mode === 'edit') {
+              // 完全编辑模式
+              this.isReadOnly = false;
+              this.isReviewMode = false;
+            } else if (isSubmitted || this.viewMode === true) {
+              // 已提交表单或显式viewMode=true，设为只读
               this.isReadOnly = true;
               this.isReviewMode = true;
             }
             
-            // Get declaration types based on user role
+            // 获取用户角色以设置声明类型
             this.getUserRole();
           } else {
             console.error(`未找到ID为 ${formId} 的表单`);
+            // 尝试使用旧的viewFormId回退
+            const viewFormId = localStorage.getItem('viewFormId');
+            if (viewFormId && viewFormId === formId) {
+              console.warn(`尝试使用viewFormId=${viewFormId}重新搜索表单`);
+              const formByOldId = forms.find(f => 
+                f.id.toString() === viewFormId ||
+                (f.numeric_id && f.numeric_id.toString() === viewFormId) ||
+                (f.displayId && f.displayId.toString() === viewFormId)
+              );
+              
+              if (formByOldId) {
+                this.form = { ...formByOldId };
+                this.formattedPrice = this.form.formattedPrice || '';
+                if (!this.formattedPrice && this.form.price) {
+                  this.formattedPrice = `${parseFloat(this.form.price).toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                  })} AUD`;
+                }
+                
+                // 根据模式设置表单状态
+                if (mode === 'view' || this.viewMode === true) {
+                  this.isReadOnly = true;
+                  this.isReviewMode = true;
+                } else if (mode === 'editable') {
+                  this.isReadOnly = false;
+                  this.isReviewMode = true;
+                } else {
+                  this.isReadOnly = false;
+                  this.isReviewMode = false;
+                }
+                
+                this.getUserRole();
+              }
+            }
           }
         }
       } catch (e) {
-        console.error("Error loading specific form:", e);
+        console.error("加载特定表单时出错:", e);
+        this.toast.error(`加载表单失败: ${e.message || '未知错误'}`);
       }
     },
     returnToHistory() {
@@ -933,11 +952,11 @@ export default {
     
     // Check if we are loading an existing form (view or edit)
     if (this.formId || this.$route.query.id) {
-      console.log("加载现有表单...");
+      console.log("Loading existing form...");
       this.loadSpecificForm();
     } else {
       // This is for creating a NEW form
-      console.log("创建新表单...");
+      console.log("Creating new form...");
       // Ensure a fresh temporary ID is generated for a new form
       this.resetForm(); 
       
@@ -1227,5 +1246,3 @@ textarea.form-control {
   }
 }
 </style>
-
-  

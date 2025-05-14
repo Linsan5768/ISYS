@@ -5,7 +5,7 @@
       <p>Your session will expire in {{ remainingTime }} seconds due to inactivity.</p>
       <div class="warning-actions">
         <button @click="extendSession" class="extend-btn">Stay Logged In</button>
-        <button @click="logout" class="logout-btn">Logout Now</button>
+        <button @click="logoutNow" class="logout-btn">Logout Now</button>
       </div>
     </div>
   </div>
@@ -72,6 +72,15 @@ const handleTimeout = () => {
     props.onTimeout()
   } else {
     logout()
+  }
+  emit('timeout')
+}
+
+// 直接登出
+const logoutNow = () => {
+  showWarning.value = false
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
   }
   emit('timeout')
 }

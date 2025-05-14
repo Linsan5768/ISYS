@@ -1,5 +1,6 @@
 <script>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 
 export default {
   name: 'IssuesPage'
@@ -7,6 +8,8 @@ export default {
 </script>
 
 <script setup>
+const router = useRouter()
+
 const isLoading = ref(true)
 const issues = ref([
   {
@@ -116,6 +119,11 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+// Navigate back to home
+const goBack = () => {
+  router.push('/home')
+}
+
 // Simulate loading
 onMounted(() => {
   setTimeout(() => {
@@ -126,77 +134,86 @@ onMounted(() => {
 
 <template>
   <div class="issues-container">
-    <div class="issues-header">
-      <h1>System Issues</h1>
-      <p>Manage and resolve reported system issues</p>
-    </div>
-    
-    <div class="filters">
-      <div class="search-box">
-        <input 
-          type="text" 
-          v-model="searchQuery" 
-          placeholder="Search issues..." 
-          class="search-input"
-        />
+    <div class="issues-card">
+      <!-- Back button -->
+      <div class="back-arrow" @click="goBack">
+        <span class="arrow-icon">←</span>
       </div>
       
-      <div class="filter-group">
-        <label for="status-filter">Status:</label>
-        <select id="status-filter" v-model="statusFilter" class="filter-select">
-          <option value="all">All Statuses</option>
-          <option value="open">Open</option>
-          <option value="in_progress">In Progress</option>
-          <option value="resolved">Resolved</option>
-        </select>
+      <div class="issues-header">
+        <h1>System Issues</h1>
+        <p>Manage and resolve reported system issues</p>
       </div>
       
-      <div class="filter-group">
-        <label for="priority-filter">Priority:</label>
-        <select id="priority-filter" v-model="priorityFilter" class="filter-select">
-          <option value="all">All Priorities</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
-      </div>
-    </div>
-    
-    <div v-if="isLoading" class="loading">
-      Loading issues...
-    </div>
-    
-    <div v-else-if="filteredIssues.length === 0" class="no-issues">
-      <p>No issues found matching your filters.</p>
-    </div>
-    
-    <div v-else class="issues-list">
-      <div v-for="issue in filteredIssues" :key="issue.id" class="issue-card">
-        <div class="issue-header">
-          <h3 class="issue-title">{{ issue.title }}</h3>
-          <div class="issue-meta">
-            <span :class="['issue-status', issue.status]">{{ issue.status.replace('_', ' ') }}</span>
-            <span :class="['issue-priority', issue.priority]">{{ issue.priority }}</span>
+      <div class="filters">
+        <div class="search-box">
+          <input 
+            type="text" 
+            v-model="searchQuery" 
+            placeholder="Search issues..." 
+            class="search-input"
+          />
+        </div>
+        
+        <div class="filter-controls">
+          <div class="filter-group">
+            <label for="status-filter">Status:</label>
+            <select id="status-filter" v-model="statusFilter" class="filter-select">
+              <option value="all">All Statuses</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </div>
+          
+          <div class="filter-group">
+            <label for="priority-filter">Priority:</label>
+            <select id="priority-filter" v-model="priorityFilter" class="filter-select">
+              <option value="all">All Priorities</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
           </div>
         </div>
-        
-        <p class="issue-description">{{ issue.description }}</p>
-        
-        <div class="issue-footer">
-          <span class="issue-reporter">Reported by: {{ issue.reportedBy }}</span>
-          <span class="issue-date">{{ formatDate(issue.createdAt) }}</span>
-        </div>
-        
-        <div class="issue-actions">
-          <button v-if="issue.status !== 'resolved'" class="action-button resolve">
-            Mark as Resolved
-          </button>
-          <button v-if="issue.status === 'open'" class="action-button progress">
-            Start Working
-          </button>
-          <button class="action-button view">
-            View Details
-          </button>
+      </div>
+      
+      <div v-if="isLoading" class="loading">
+        Loading issues...
+      </div>
+      
+      <div v-else-if="filteredIssues.length === 0" class="no-issues">
+        <p>No issues found matching your filters.</p>
+      </div>
+      
+      <div v-else class="issues-list">
+        <div v-for="issue in filteredIssues" :key="issue.id" class="issue-card">
+          <div class="issue-header">
+            <h3 class="issue-title">{{ issue.title }}</h3>
+            <div class="issue-meta">
+              <span :class="['issue-status', issue.status]">{{ issue.status.replace('_', ' ') }}</span>
+              <span :class="['issue-priority', issue.priority]">{{ issue.priority }}</span>
+            </div>
+          </div>
+          
+          <p class="issue-description">{{ issue.description }}</p>
+          
+          <div class="issue-footer">
+            <span class="issue-reporter">Reported by: {{ issue.reportedBy }}</span>
+            <span class="issue-date">{{ formatDate(issue.createdAt) }}</span>
+          </div>
+          
+          <div class="issue-actions">
+            <button v-if="issue.status !== 'resolved'" class="action-button resolve">
+              Mark as Resolved
+            </button>
+            <button v-if="issue.status === 'open'" class="action-button progress">
+              Start Working
+            </button>
+            <button class="action-button view">
+              View Details
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -205,33 +222,75 @@ onMounted(() => {
 
 <style scoped>
 .issues-container {
-  padding: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 20px;
+  background-color: #E5E5E5;
+}
+
+.issues-card {
+  position: relative;
+  background-color: var(--bg-card, #E1E1E1);
+  border-radius: 10px;
+  box-shadow: var(--box-shadow, 0 4px 12px rgba(0, 0, 0, 0.15));
+  width: 100%;
   max-width: 1200px;
-  margin: 0 auto;
+  padding: 20px;
+  overflow: hidden;
+  margin-top: 30px;
+}
+
+.back-arrow {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  cursor: pointer;
+  font-size: 20px;
+  color: var(--text-main, #333);
+  z-index: 10;
+}
+
+.arrow-icon {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.back-arrow:hover {
+  color: var(--primary, #1F3A93);
 }
 
 .issues-header {
   margin-bottom: 2rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color, #ccc);
   padding-bottom: 1rem;
+  text-align: center;
+  margin-top: 20px;
 }
 
 .issues-header h1 {
   font-size: 2rem;
   margin-bottom: 0.5rem;
-  color: var(--text-main);
+  color: var(--text-main, #444);
 }
 
 .issues-header p {
   font-size: 1.1rem;
-  color: var(--text-subtle);
+  color: var(--text-subtle, #666);
 }
 
 .filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 1rem;
   margin-bottom: 2rem;
+}
+
+.filter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
   align-items: center;
 }
 
@@ -243,11 +302,11 @@ onMounted(() => {
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color, #ccc);
   border-radius: 6px;
   font-size: 1rem;
-  background: var(--bg-card);
-  color: var(--text-main);
+  background: var(--bg-card, #E1E1E1);
+  color: var(--text-main, #444);
 }
 
 .filter-group {
@@ -258,16 +317,16 @@ onMounted(() => {
 
 .filter-group label {
   font-weight: bold;
-  color: var(--text-main);
+  color: var(--text-main, #444);
 }
 
 .filter-select {
   padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-color, #ccc);
   border-radius: 6px;
   font-size: 1rem;
-  background: var(--bg-card);
-  color: var(--text-main);
+  background: var(--bg-card, #E1E1E1);
+  color: var(--text-main, #444);
 }
 
 .loading, .no-issues {
@@ -276,7 +335,10 @@ onMounted(() => {
   align-items: center;
   min-height: 200px;
   font-size: 1.2rem;
-  color: var(--text-subtle);
+  color: var(--text-subtle, #666);
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  margin: 20px 0;
 }
 
 .issues-list {
@@ -292,7 +354,7 @@ onMounted(() => {
 }
 
 .issue-card {
-  background: var(--bg-card);
+  background: white;
   border-radius: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   padding: 1.5rem;
@@ -301,7 +363,7 @@ onMounted(() => {
 
 .issue-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--slected-box-shadow, 0 6px 16px rgba(0, 0, 0, 0.15));
 }
 
 .issue-header {
@@ -316,7 +378,7 @@ onMounted(() => {
 .issue-title {
   font-size: 1.25rem;
   font-weight: bold;
-  color: var(--text-main);
+  color: var(--text-main, #444);
   margin: 0;
 }
 
@@ -364,7 +426,7 @@ onMounted(() => {
 }
 
 .issue-description {
-  color: var(--text-main);
+  color: var(--text-main, #444);
   margin-bottom: 1.5rem;
   line-height: 1.5;
 }
@@ -373,7 +435,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   font-size: 0.9rem;
-  color: var(--text-subtle);
+  color: var(--text-subtle, #666);
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -414,15 +476,39 @@ onMounted(() => {
 }
 
 .action-button.view {
-  background: var(--bg-base);
-  color: var(--text-main);
+  background: var(--primary, #1F3A93);
+  color: white;
 }
 
 .action-button.view:hover {
-  background: var(--border-color);
+  background: var(--primary-hover, #142c70);
 }
 
 .action-button:hover {
   transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .issues-card {
+    padding: 15px;
+    margin-top: 20px;
+  }
+  
+  .filters {
+    flex-direction: column;
+  }
+  
+  .filter-controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .filter-group {
+    width: 100%;
+  }
+  
+  .issues-header h1 {
+    font-size: 1.5rem;
+  }
 }
 </style> 

@@ -1,12 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomePage from '../components/HomePage.vue' // 或你自定义的主页组件
 import AddRecord from '../components/AddRecord.vue'
-import RecordList from '../components/RecordList.vue'
 import Statistics from '../components/Statistics.vue'
 import LoginPage from '../components/LoginPage.vue'
 import SignUpPage from '../components/SignUpPage.vue'
 import FormHistory from '../components/FormHistory.vue'
 import AdminDashboard from '../components/AdminDashboard.vue'
+import NotificationHistory from '@/components/NotificationHistory.vue'
+
+// 确定正确的基础路径
+const isProduction = process.env.NODE_ENV === 'production';
+const baseUrl = isProduction ? '/pages/ISYS2110-2025-S1/CC04-05/' : '/';
 
 const routes = [
   // Default route - redirect to login if not authenticated, home if authenticated
@@ -41,12 +45,6 @@ const routes = [
     path: '/add', 
     name: 'AddRecord', 
     component: AddRecord,
-    meta: { requiresAuth: true }
-  },
-  { 
-    path: '/records', 
-    name: 'RecordList', 
-    component: RecordList,
     meta: { requiresAuth: true }
   },
   { 
@@ -116,6 +114,12 @@ const routes = [
       requiresAdmin: true
     }
   },
+  {
+    path: '/notifications',
+    name: 'NotificationHistory',
+    component: NotificationHistory,
+    meta: { requiresAuth: true }
+  },
   // Catch-all / 404 route - redirect to login
   {
     path: '/:pathMatch(.*)*',
@@ -124,7 +128,7 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(baseUrl),
   routes
 })
 
