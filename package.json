@@ -1,5 +1,5 @@
 {
-  "dependencies": {
-    "html2pdf.js": "^0.10.3"
+  "scripts": {
+    "build": "vue-cli-service build --public-path ./"
   }
 }

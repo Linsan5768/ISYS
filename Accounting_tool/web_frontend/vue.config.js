@@ -1,8 +1,9 @@
-const { defineConfig } = require('@vue/cli-service')
 const path = require('path');
 
-module.exports = defineConfig({
-  transpileDependencies: true,
+module.exports = {
+  publicPath: './',
+  outputDir: 'dist',
+  lintOnSave: false,
 
   devServer: {
     proxy: {
@@ -20,9 +21,5 @@ module.exports = defineConfig({
         '@tauri-apps/api/dialog': path.resolve(__dirname, 'src/tauri-dialog-shim.js')
       }
     }
-  },
-
-  publicPath: './', // ✅ 最关键的修复点
-  outputDir: 'dist',
-  lintOnSave: false
-});
+  }
+};
