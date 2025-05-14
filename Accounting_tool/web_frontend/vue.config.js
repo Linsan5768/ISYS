@@ -3,8 +3,7 @@ const path = require('path');
 
 module.exports = defineConfig({
   transpileDependencies: true,
-  
-  // 开发模式代理配置
+
   devServer: {
     proxy: {
       '/api': {
@@ -14,7 +13,7 @@ module.exports = defineConfig({
       }
     }
   },
-  
+
   configureWebpack: {
     resolve: {
       alias: {
@@ -23,10 +22,7 @@ module.exports = defineConfig({
     }
   },
 
-  // 为Vercel设置正确的publicPath
-  publicPath: '/',
+  publicPath: './', // ✅ 最关键的修复点
   outputDir: 'dist',
-  
-  // 临时禁用ESLint，使构建能够完成
   lintOnSave: false
 });
