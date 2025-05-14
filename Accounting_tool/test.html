@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>GitHub Pages Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 { color: #2c3e50; }
+    .success { color: green; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>GitHub Pages Test Page</h1>
+  
+  <p>If you can see this page, basic HTML rendering is working!</p>
+  
+  <p class="success">SUCCESS: Static HTML content works!</p>
+  
+  <div id="jstest">JavaScript is not working</div>
+  
+  <script>
+    // Simple JavaScript test
+    document.getElementById('jstest').innerHTML = '<span style="color:green;font-weight:bold">SUCCESS: JavaScript is working!</span>';
+    
+    // Log information about the page location
+    console.log('Page URL:', window.location.href);
+    console.log('Page Path:', window.location.pathname);
+    console.log('Host:', window.location.host);
+  </script>
+  
+  <p>Please check browser console (F12) for additional diagnostics.</p>
+</body>
+</html> 

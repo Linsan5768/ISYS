@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.git
+.github
+*.md
+.env
+backend/node_modules
+web_frontend/node_modules
+web_frontend/src
+web_frontend/public
+web_frontend/node_modules
+*.log 

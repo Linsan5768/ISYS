@@ -1,103 +1,174 @@
-# 记账工具 (Accounting Tool)
+# Case 4 Fanum Tax
 
-一个简单易用的本地记账工具，包含 Vue 前端和 Flask 后端，支持添加、编辑、删除记账记录，并提供基础的图表统计和分类功能。
+A comprehensive tax accounting application designed to simplify financial management and tax planning. This tool helps users visualize their income, expenses, tax liabilities, and financial trends in an intuitive dashboard.
 
----
+![Tax Dashboard Screenshot](web_frontend/public/dashboard-preview.png)
 
-## 🧩 项目结构
+## What This Tool Does
 
+- **Track Your Finances**: Easily record and categorize your income, expenses, and tax-related transactions
+- **Visualize Financial Health**: See your financial trends over time with interactive charts and graphs
+- **Monitor Tax Obligations**: Keep track of upcoming tax payments with due dates and status indicators
+- **Plan Ahead**: Use quarterly or yearly views to better plan your financial future
+- **Take It Anywhere**: Access your financial data from any device with a web browser
+
+## Main Features
+
+### 📊 Comprehensive Dashboard
+
+The dashboard provides a complete overview of your financial situation:
+
+- **Financial Trends**: Track income, expenses, and net income over time
+- **Current Tax Liabilities**: See what taxes you owe and when they're due
+- **Transaction History**: Review your past financial activities
+- **Outstanding Items**: Monitor upcoming financial items and system-estimated tax items
+
+### 🔄 Flexible View Options
+
+Switch between different view modes to analyze your data:
+
+- **Yearly View**: See the big picture of your finances across multiple years
+- **Quarterly View**: Focus on shorter time periods for more detailed analysis
+
+### 📋 Data Export
+
+Generate reports of your financial data:
+
+- **CSV Export**: For further analysis in spreadsheet applications
+- **PDF Export**: For professional-looking financial reports
+
+## Getting Started
+
+1. **Launch the Application**: 
+   - Open your web browser and navigate to the application URL
+   - For local development, visit http://localhost:8080
+
+2. **Dashboard Overview**:
+   - The main dashboard displays your financial information
+   - Toggle between yearly and quarterly views using the buttons in the action panel
+
+3. **View Your Financial Data**:
+   - Financial Trends chart shows your income and expenses over time
+   - Current Tax Liabilities section displays your upcoming tax obligations
+   - Transaction History lists your recent financial activities
+
+4. **Filter Your Data**:
+   - Click the FILTER button to set date ranges and view specific time periods
+   - Use the filter dialog to select years or quarters of interest
+
+5. **Export Your Data**:
+   - Click the EXPORT button to download your financial information
+   - Choose between CSV and PDF formats
+   - Select which sections of data to include in your export
+
+## Use Case Examples
+
+### Personal Tax Planning
+
+Monitor your tax situation throughout the year:
+- Track quarterly estimated tax payments
+- See when tax payments are due
+- Analyze your income and tax liability patterns
+
+### Small Business Financial Management
+
+Keep your business finances organized:
+- Monitor business income and expenses
+- Track business-related tax deductions
+- Prepare for tax season with detailed financial reports
+
+### Investment Income Tracking
+
+Stay on top of your investment portfolio:
+- Record investment income and capital gains
+- View projected returns and tax implications
+- Analyze investment performance over time
+
+## For Developers
+
+If you're interested in the technical aspects of this project or want to contribute, please see the [Developer Documentation](DEVELOPER.md) for setup instructions and technical details.
+
+## About This Project
+
+This Accounting Tool was developed as an educational project to demonstrate modern web application development and financial data visualization techniques. While it provides useful functionality for personal and small business financial management, it is not intended to replace professional accounting software or tax advice.
+
+For questions or feedback, please open an issue in the project repository.
+
+## Deployment Options
+
+### Option 1: One-Click Development Setup
+
+Run the application locally in development mode:
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd Accounting_tool
+
+# Install dependencies and start the application
+./deploy-full.sh
+npm start
 ```
-accounting_tool/
-├── backend/          # Flask 后端
-│   ├── app.py        # 主应用入口
-│   ├── models.py     # 数据库模型定义
-│   └── requirements.txt
-├── web_frontend/     # Vue 前端
-│   ├── src/
-│   ├── public/
-│   └── package.json
-└── accounting.db     # SQLite 本地数据库（运行后自动生成）
+
+The application will be available at http://localhost:5002
+
+### Option 2: Docker Deployment
+
+Deploy using Docker for production:
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd Accounting_tool
+
+# Build and run with Docker
+docker-compose up -d
 ```
 
----
+The application will be available at http://localhost:5002
 
-## 🖥️ 本地运行指南
+### Option 3: Manual Setup
 
-### ✅ 后端（Flask）
+Setup and run the application manually:
 
-1. 打开终端，进入 `backend` 目录：
-
+1. Setup backend:
 ```bash
 cd backend
+npm install
+# Create .env file with proper configuration
 ```
 
-2. 创建并激活虚拟环境（推荐）：
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-3. 安装依赖：
-
-```bash
-pip install -r requirements.txt
-```
-
-4. 启动服务：
-
-```bash
-python app.py
-```
-
-> 默认监听在 `http://localhost:5002`
-
----
-
-### ✅ 前端（Vue 3 + Vue CLI）
-
-1. 打开另一个终端，进入 `web_frontend`：
-
+2. Build frontend:
 ```bash
 cd web_frontend
-```
-
-2. 安装依赖：
-
-```bash
 npm install
+npm run build
+# Copy dist/ to backend/public/
 ```
 
-3. 启动开发服务器：
-
+3. Start server:
 ```bash
-npm run serve
+cd backend
+npm start
 ```
 
-> 默认监听在 `http://localhost:8080`
+## System Requirements
 
----
+- Node.js 16+
+- npm 7+
+- (Optional) Docker and Docker Compose for containerized deployment
 
-## 🌐 使用方式
+## Configuration
 
-- 前端访问：打开浏览器访问 [http://localhost:8080](http://localhost:8080)
-- 前端会通过接口连接本地后端（需确保接口地址为 `http://localhost:5002`）
+The application can be configured using environment variables:
 
----
+- `PORT`: The port to run the server on (default: 5002)
+- `DATABASE_PATH`: Path to the SQLite database file
+- `JWT_SECRET`: Secret key for JWT authentication
 
-## 🛠️ 技术栈
+## Features
 
-- 前端：Vue.js, Chart.js, Bootstrap, Axios
-- 后端：Flask, SQLAlchemy, SQLite
-- 其他：dotenv, flask-cors, gunicorn（用于部署）
-
----
-
-## 📝 说明
-
-- 默认数据库为 `SQLite`，运行时自动生成 `accounting.db`
-- 可直接运行，无需额外数据库配置
-- 如果首次运行时报错找不到数据库，可在 `backend` 下手动执行：
-  ```bash
-  python -c "import models; models.init_db()"
-  ```
+- Tax form submission and management
+- Financial tracking and reporting
+- Tax liability calculation
+- User authentication and authorization

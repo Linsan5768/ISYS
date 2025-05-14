@@ -1,0 +1,12 @@
+{
+  "name": "accounting-tool",
+  "version": "1.0.0",
+  "description": "Tax accounting and management application",
+  "scripts": {
+    "start": "cd web_frontend && npm run serve",
+    "deploy": "cd web_frontend && npm run deploy"
+  },
+  "dependencies": {
+    "html2pdf.js": "^0.10.3"
+  }
+}

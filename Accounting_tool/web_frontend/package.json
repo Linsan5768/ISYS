@@ -6,7 +6,8 @@
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
-    "tauri": "cargo tauri"
+    "tauri": "cargo tauri",
+    "deploy": "sh deploy.sh"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.3.0",

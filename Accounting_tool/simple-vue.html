@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Simple Vue Test</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; }
+    .card { border: 1px solid #ddd; padding: 1rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Simple Vue Test</h1>
+  
+  <div id="app">
+    <div class="card">
+      <h2>{{ message }}</h2>
+      <p>This is a simple Vue app to test if Vue works in this environment.</p>
+      <p>Counter: {{ counter }}</p>
+      <button @click="increment">Increment</button>
+    </div>
+  </div>
+  
+  <script>
+    const { createApp } = Vue
+    
+    createApp({
+      data() {
+        return {
+          message: 'Hello Vue!',
+          counter: 0
+        }
+      },
+      methods: {
+        increment() {
+          this.counter++
+        }
+      },
+      mounted() {
+        console.log('Vue app mounted successfully')
+        console.log('Page URL:', window.location.href)
+        console.log('Page Path:', window.location.pathname)
+      }
+    }).mount('#app')
+  </script>
+</body>
+</html> 
