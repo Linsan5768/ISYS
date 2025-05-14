@@ -23,10 +23,8 @@ module.exports = defineConfig({
     }
   },
 
-  // 使用完全匹配的完整路径
-  publicPath: process.env.NODE_ENV === 'production'
-    ? '/pages/ISYS2110-2025-S1/CC04-05/'  // 完全匹配的绝对路径
-    : '/',
+  // 为Vercel设置正确的publicPath
+  publicPath: '/',
   outputDir: 'dist',
   
   // 临时禁用ESLint，使构建能够完成
