@@ -7,64 +7,45 @@ import toast from './services/toast'
 
 // 导入配置并使用其API URL
 import config from "./config.js";
-const apiBaseUrl = config.apiBaseUrl;
+const apiBaseUrl = config.apiBaseUrl || 'https://fanum-api.onrender.com'; // ✅ 默认后端地址
 
-// 检测GitHub Pages环境
+// 检测是否运行在 GitHub Pages（你现在不需要了，但保留逻辑以便本地测试）
 const isGitHubPages = window.location.hostname.includes('github.io');
 console.log("Backend API URL:", apiBaseUrl);
 console.log("Running on GitHub Pages:", isGitHubPages);
 
-// Create axios instance
+// 创建 axios 实例（不再根据是否 GitHub Pages，统一指向后端）
 const axiosInstance = axios.create({
-  baseURL: isGitHubPages ? '/' : '/api',  // 在GitHub Pages上使用相对路径
-  withCredentials: !isGitHubPages  // 在GitHub Pages上禁用凭证
+  baseURL: apiBaseUrl,
+  withCredentials: true
 })
 
-// 在GitHub Pages上拦截请求并返回模拟数据
-if (isGitHubPages) {
-  axiosInstance.interceptors.request.use(
-    config => {
-      console.log("Running on GitHub Pages - API requests will be mocked");
-      // 在GitHub Pages上，返回一个被拒绝的promise，这样会触发错误处理
-      // 错误处理中会使用测试数据
-      return Promise.reject({
-        response: {
-          status: 0,
-          data: { message: "Running on GitHub Pages, using test data" }
-        }
-      });
-    },
-    error => Promise.reject(error)
-  )
-} else {
-  // 正常环境下，添加认证token
-  axiosInstance.interceptors.request.use(
-    config => {
-      const userStr = localStorage.getItem('user')
-      if (userStr) {
-        const user = JSON.parse(userStr)
-        if (user && user.token) {
-          config.headers.Authorization = `Bearer ${user.token}`
-        }
+// 请求拦截器（添加 token）
+axiosInstance.interceptors.request.use(
+  config => {
+    const userStr = localStorage.getItem('user')
+    if (userStr) {
+      const user = JSON.parse(userStr)
+      if (user && user.token) {
+        config.headers.Authorization = `Bearer ${user.token}`
       }
-      return config
-    },
-    error => Promise.reject(error)
-  )
-}
+    }
+    return config
+  },
+  error => Promise.reject(error)
+)
 
-// Create app
+// 创建 app 实例
 const app = createApp(App)
 
-// Provide axios globally
+// 注入 axios 实例
 app.config.globalProperties.$axios = axiosInstance
 
-// Provide toast service globally
+// 注入 toast 全局服务
 app.config.globalProperties.$toast = toast
 
-// Provide a flag to indicate if running on GitHub Pages
+// 注入环境标识
 app.config.globalProperties.$isGitHubPages = isGitHubPages
 
 app.use(router)
 app.mount('#app')
-

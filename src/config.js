@@ -6,6 +6,5 @@ const isGitHubPages = window.location.hostname.includes('github.io');
 
 // Export configuration
 export default {
-  apiBaseUrl: API_BASE_URL,
-  isGitHubPages: isGitHubPages
-};
+  apiBaseUrl: 'https://fanum-api.onrender.com'
+}
