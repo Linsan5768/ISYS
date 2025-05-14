@@ -1,3 +1,4 @@
 export default {
-  apiBaseUrl: 'https://fanum-backend.onrender.com'
-};
+  apiBaseUrl: 'https://fanum-backend.onrender.com',
+  isGitHubPages: false
+}
