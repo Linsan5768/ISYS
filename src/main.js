@@ -5,9 +5,10 @@ import axios from 'axios'
 import './styles/theme.css'
 import toast from './services/toast'
 
+
 // 导入配置并使用其API URL
 import config from "./config.js";
-const apiBaseUrl = config.apiBaseUrl || 'https://fanum-api.onrender.com'; // ✅ 默认后端地址
+
 
 // 检测是否运行在 GitHub Pages（你现在不需要了，但保留逻辑以便本地测试）
 const isGitHubPages = window.location.hostname.includes('github.io');
@@ -16,9 +17,9 @@ console.log("Running on GitHub Pages:", isGitHubPages);
 
 // 创建 axios 实例（不再根据是否 GitHub Pages，统一指向后端）
 const axiosInstance = axios.create({
-  baseURL: apiBaseUrl,
+  baseURL: config.apiBaseUrl,
   withCredentials: true
-})
+});
 
 // 请求拦截器（添加 token）
 axiosInstance.interceptors.request.use(

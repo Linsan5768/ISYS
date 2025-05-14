@@ -1,10 +1,11 @@
-// Get API URL from environment variable or use default
-const API_BASE_URL = process.env.VUE_APP_API_URL || window.location.origin;  // Will use the same origin in production
-
-// Determine if we're running on GitHub Pages
+// config.js
 const isGitHubPages = window.location.hostname.includes('github.io');
 
-// Export configuration
+const API_BASE_URL =
+  process.env.VUE_APP_API_URL ||
+  (isGitHubPages ? '/' : 'https://fanum-backend.onrender.com');
+
 export default {
-  apiBaseUrl: 'https://fanum-api.onrender.com'
-}
+  apiBaseUrl: API_BASE_URL,
+  isGitHubPages
+};
