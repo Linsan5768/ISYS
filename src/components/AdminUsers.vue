@@ -117,131 +117,137 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, getCurrentInstance } from 'vue'
-import { useRouter } from 'vue-router'
-import axios from 'axios'
-
-const { proxy } = getCurrentInstance()
-const router = useRouter()
-const users = ref([])
-const filteredUsers = ref([])
-const loading = ref(false)
-const error = ref(null)
-const searchTerm = ref('')
-const roleFilter = ref('')
-const showConfirmDialog = ref(false)
-const selectedUser = ref(null)
-
-const loadUsers = async () => {
-  try {
-    loading.value = true
-    error.value = null
-    
-    const response = await proxy.$axios.get('/api/admin/users')
-    const data = response.data
-    
-    if (data.success) {
-      users.value = data.users
-      filterUsers()
-    } else {
-      error.value = data.message || 'Failed to load users'
-    }
-  } catch (err) {
-    console.error('Error loading users:', err)
-    if (err.response) {
-      if (err.response.status === 401) {
-        router.push('/login')
-        return
-      } else if (err.response.status === 403) {
-        error.value = 'You do not have permission to access this page.'
-        setTimeout(() => {
-          router.push('/home')
-        }, 3000)
-        return
+<script>
+export default {
+  name: 'AdminUsers',
+  data() {
+    return {
+      users: [],
+      filteredUsers: [],
+      loading: false,
+      error: null,
+      searchTerm: '',
+      roleFilter: '',
+      showConfirmDialog: false,
+      selectedUser: null
+    };
+  },
+  methods: {
+    async loadUsers() {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        const response = await this.$axios.get('/api/admin/users');
+        
+        if (response.data.success) {
+          this.users = response.data.users;
+          this.filterUsers();
+        } else {
+          this.error = response.data.message || 'Failed to load users';
+        }
+      } catch (err) {
+        console.error('Error loading users:', err);
+        if (err.response) {
+          if (err.response.status === 401) {
+            this.$router.push('/login');
+            return;
+          } else if (err.response.status === 403) {
+            this.error = 'You do not have permission to access this page.';
+            setTimeout(() => {
+              this.$router.push('/home');
+            }, 3000);
+            return;
+          }
+        }
+        this.error = 'Error loading users. Please try again later.';
+      } finally {
+        this.loading = false;
       }
-    }
-    error.value = 'Error loading users. Please try again later.'
-  } finally {
-    loading.value = false
-  }
-}
-
-const filterUsers = () => {
-  filteredUsers.value = users.value.filter(user => {
-    const matchesSearch = 
-      searchTerm.value === '' || 
-      user.username.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.value.toLowerCase())
-      
-    const matchesRole = 
-      roleFilter.value === '' || 
-      user.role === roleFilter.value
-      
-    return matchesSearch && matchesRole
-  })
-}
-
-const updateUser = async (user) => {
-  try {
-    const response = await proxy.$axios.put(`/api/admin/user/${user.id}`, {
-      is_active: user.is_active,
-      email_verified: user.email_verified,
-      role: user.role
-    })
+    },
     
-    if (response.data.success) {
-      alert(`User ${user.username} has been updated.`)
-    } else {
-      loadUsers()
-      alert(response.data.message || 'Failed to update user.')
-    }
-  } catch (err) {
-    console.error('Error updating user:', err)
-    loadUsers()
-    alert('Error updating user. Please try again later.')
-  }
-}
-
-const confirmDeleteUser = (user) => {
-  selectedUser.value = user
-  showConfirmDialog.value = true
-}
-
-const cancelAction = () => {
-  showConfirmDialog.value = false
-  selectedUser.value = null
-}
-
-const deleteUser = async () => {
-  if (!selectedUser.value) return
-  
-  try {
-    const response = await proxy.$axios.delete(`/api/admin/user/${selectedUser.value.id}`)
+    filterUsers() {
+      // Filter users based on search term and role filter
+      this.filteredUsers = this.users.filter(user => {
+        const matchesSearch = 
+          this.searchTerm === '' || 
+          user.username.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+          user.email.toLowerCase().includes(this.searchTerm.toLowerCase());
+          
+        const matchesRole = 
+          this.roleFilter === '' || 
+          user.role === this.roleFilter;
+          
+        return matchesSearch && matchesRole;
+      });
+    },
     
-    if (response.data.success) {
-      users.value = users.value.filter(user => user.id !== selectedUser.value.id)
-      filterUsers()
-      alert(`User ${selectedUser.value.username} has been deleted.`)
-    } else {
-      alert(response.data.message || 'Failed to delete user.')
+    async updateUser(user) {
+      try {
+        const response = await this.$axios.put(`/api/admin/user/${user.id}`, {
+          is_active: user.is_active,
+          email_verified: user.email_verified,
+          role: user.role
+        });
+        
+        if (response.data.success) {
+          // Update succeeded
+          alert(`User ${user.username} has been updated.`);
+        } else {
+          // Update failed, revert changes
+          this.loadUsers();
+          alert(response.data.message || 'Failed to update user.');
+        }
+      } catch (err) {
+        console.error('Error updating user:', err);
+        // Revert changes
+        this.loadUsers();
+        alert('Error updating user. Please try again later.');
+      }
+    },
+    
+    confirmDeleteUser(user) {
+      this.selectedUser = user;
+      this.showConfirmDialog = true;
+    },
+    
+    cancelAction() {
+      this.showConfirmDialog = false;
+      this.selectedUser = null;
+    },
+    
+    async deleteUser() {
+      if (!this.selectedUser) return;
+      
+      try {
+        // This is a placeholder - actual endpoint needs to be implemented in backend
+        const response = await this.$axios.delete(`/api/admin/user/${this.selectedUser.id}`);
+        
+        if (response.data.success) {
+          // Remove user from list
+          this.users = this.users.filter(user => user.id !== this.selectedUser.id);
+          this.filterUsers();
+          alert(`User ${this.selectedUser.username} has been deleted.`);
+        } else {
+          alert(response.data.message || 'Failed to delete user.');
+        }
+      } catch (err) {
+        console.error('Error deleting user:', err);
+        alert('Error deleting user. Please try again later.');
+      } finally {
+        this.showConfirmDialog = false;
+        this.selectedUser = null;
+      }
+    },
+    
+    goBack() {
+      this.$router.go(-1);
     }
-  } catch (err) {
-    console.error('Error deleting user:', err)
-    alert('Error deleting user. Please try again later.')
-  } finally {
-    showConfirmDialog.value = false
-    selectedUser.value = null
+  },
+  mounted() {
+    this.loadUsers();
   }
-}
-
-const goBack = () => {
-  router.go(-1)
-}
-
-onMounted(() => {
-  loadUsers()
-})
+};
 </script>
 
 <style scoped>

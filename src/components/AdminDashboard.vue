@@ -212,349 +212,368 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, getCurrentInstance } from 'vue'
-import { getAuditLogs, formatAction, getActionClass, exportAuditLogsToPDF, exportAuditLogsToCSV, convertToUTCTime } from '../services/auditService'
+<script>
+import { getAuditLogs, formatAction, getActionClass, exportAuditLogsToPDF, exportAuditLogsToCSV, convertToUTCTime } from '../services/auditService';
 
-const { proxy } = getCurrentInstance()
-
-const auditLogs = ref([])
-const loading = ref(false)
-const error = ref(null)
-const currentPage = ref(1)
-const totalPages = ref(0)
-const perPage = ref(15)
-const autoRefresh = ref(false)
-const refreshInterval = ref(null)
-const filters = ref({
-  action: '',
-  fromDate: '',
-  toDate: '',
-  userId: '',
-  role: ''
-})
-const tempFilters = ref({
-  action: '',
-  fromDate: '',
-  toDate: '',
-  userId: '',
-  role: ''
-})
-const showFilterOverlay = ref(false)
-const showExportOverlay = ref(false)
-const timeDisplayInterval = ref(null)
-const currentTimeDisplay = ref(new Date().toLocaleString())
-
-const hasActiveFilters = computed(() => {
-  return filters.value.action || filters.value.fromDate || filters.value.toDate || filters.value.role
-})
-
-const currentTimeZone = computed(() => {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone
-})
-
-const currentTime = computed(() => {
-  return currentTimeDisplay.value
-})
-
-const loadAuditLogs = async () => {
-  loading.value = true
-  error.value = null
-  
-  try {
-    const params = {
-      page: currentPage.value,
-      per_page: perPage.value
+export default {
+  name: 'AdminDashboard',
+  data() {
+    return {
+      auditLogs: [],
+      loading: false,
+      error: null,
+      currentPage: 1,
+      totalPages: 0,
+      perPage: 15,
+      autoRefresh: false,
+      refreshInterval: null,
+      filters: {
+        action: '',
+        fromDate: '',
+        toDate: '',
+        userId: '',
+        role: ''
+      },
+      tempFilters: {
+        action: '',
+        fromDate: '',
+        toDate: '',
+        userId: '',
+        role: ''
+      },
+      showFilterOverlay: false,
+      showExportOverlay: false,
+      timeDisplayInterval: null,
+      currentTimeDisplay: new Date().toLocaleString()
+    };
+  },
+  computed: {
+    hasActiveFilters() {
+      return this.filters.action || this.filters.fromDate || this.filters.toDate || this.filters.role;
+    },
+    currentTimeZone() {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    },
+    currentTime() {
+      return this.currentTimeDisplay;
     }
-    
-    if (filters.value.action) params.action = filters.value.action
-    
-    if (filters.value.fromDate) {
-      const fromDate = new Date(filters.value.fromDate)
-      params.from_date = convertToUTCTime(fromDate)
-    }
-    
-    if (filters.value.toDate) {
-      const toDate = new Date(filters.value.toDate)
-      params.to_date = convertToUTCTime(toDate)
-    }
-    
-    if (filters.value.userId) params.user_id = filters.value.userId
-    if (filters.value.role) params.user_role = filters.value.role
-    
-    const response = await getAuditLogs(params)
-    
-    if (response.success) {
-      auditLogs.value = response.logs
-      totalPages.value = response.total_pages
+  },
+  methods: {
+    async loadAuditLogs() {
+      this.loading = true;
+      this.error = null;
       
-      if (currentPage.value > totalPages.value && totalPages.value > 0) {
-        currentPage.value = totalPages.value
-        loadAuditLogs()
+      try {
+        const params = {
+          page: this.currentPage,
+          per_page: 15
+        };
+        
+        // Add filters if they exist
+        if (this.filters.action) params.action = this.filters.action;
+        
+        // 日期需要转换为UTC格式后再传给后端
+        if (this.filters.fromDate) {
+          // 将日期转换为该日期的00:00:00 (UTC)
+          const fromDate = new Date(this.filters.fromDate);
+          params.from_date = convertToUTCTime(fromDate); // 转换为UTC时间
+        }
+        
+        if (this.filters.toDate) {
+          // 将日期转换为该日期的23:59:59 (UTC)
+          const toDate = new Date(this.filters.toDate);
+          params.to_date = convertToUTCTime(toDate); // 转换为UTC时间
+        }
+        
+        if (this.filters.userId) params.user_id = this.filters.userId;
+        if (this.filters.role) params.user_role = this.filters.role;
+        
+        const response = await getAuditLogs(params);
+        
+        if (response.success) {
+          this.auditLogs = response.logs;
+          this.totalPages = response.total_pages;
+          
+          // Adjust currentPage if it's out of bounds
+          if (this.currentPage > this.totalPages && this.totalPages > 0) {
+            this.currentPage = this.totalPages;
+            this.loadAuditLogs();
+          }
+        } else {
+          this.error = response.message || 'Failed to load audit logs';
+        }
+      } catch (err) {
+        console.error('Error loading audit logs:', err);
+        if (err.response) {
+          if (err.response.status === 401) {
+            // 未授权，重定向到登录页面
+            this.$router.push('/login');
+            return;
+          } else if (err.response.status === 403) {
+            // 用户没有权限访问
+            this.error = '您没有访问管理员仪表盘的权限。只有管理员用户才能访问此页面。';
+            setTimeout(() => {
+              this.$router.push('/home');
+            }, 3000); // 3秒后重定向到首页
+            return;
+          }
+        }
+        this.error = 'Error loading audit logs. Please try again later.';
+      } finally {
+        this.loading = false;
       }
-    } else {
-      error.value = response.message || 'Failed to load audit logs'
-    }
-  } catch (err) {
-    console.error('Error loading audit logs:', err)
-    if (err.response) {
-      if (err.response.status === 401) {
-        router.push('/login')
-        return
-      } else if (err.response.status === 403) {
-        error.value = '您没有访问管理员仪表盘的权限。只有管理员用户才能访问此页面。'
-        setTimeout(() => {
-          router.push('/home')
-        }, 3000)
-        return
+    },
+    changePage(page) {
+      this.currentPage = page;
+      this.loadAuditLogs();
+    },
+    resetFilters() {
+      this.filters = {
+        action: '',
+        fromDate: '',
+        toDate: '',
+        userId: '',
+        role: ''
+      };
+      this.currentPage = 1;
+      this.loadAuditLogs();
+    },
+    removeFilter(filterName) {
+      this.filters[filterName] = '';
+      this.currentPage = 1;
+      this.loadAuditLogs();
+    },
+    toggleFilterOverlay() {
+      if (!this.showFilterOverlay) {
+        // 复制当前筛选条件到临时筛选条件
+        this.tempFilters = { ...this.filters };
+      }
+      this.showFilterOverlay = !this.showFilterOverlay;
+    },
+    toggleExportOverlay() {
+      this.showExportOverlay = !this.showExportOverlay;
+    },
+    applyFilters() {
+      this.filters = { ...this.tempFilters };
+      this.currentPage = 1;
+      this.loadAuditLogs();
+      this.toggleFilterOverlay();
+    },
+    clearTempFilters() {
+      this.tempFilters = {
+        action: '',
+        fromDate: '',
+        toDate: '',
+        userId: '',
+        role: ''
+      };
+    },
+    async exportAsPDF() {
+      try {
+        this.loading = true;
+        
+        // 准备查询参数，使用当前筛选条件
+        const params = {};
+        if (this.filters.action) params.action = this.filters.action;
+        if (this.filters.fromDate) params.from_date = this.filters.fromDate;
+        if (this.filters.toDate) params.to_date = this.filters.toDate;
+        if (this.filters.userId) params.user_id = this.filters.userId;
+        if (this.filters.role) params.user_role = this.filters.role;
+        
+        // 调用API获取数据
+        const response = await exportAuditLogsToPDF(params);
+        
+        if (response.success) {
+          const logs = response.logs;
+          
+          // 导入html2pdf库
+          const html2pdf = require('html2pdf.js');
+          
+          // 创建HTML内容
+          const element = document.createElement('div');
+          element.innerHTML = `
+            <html>
+              <head>
+                <title>Audit Logs - ${new Date().toLocaleDateString()}</title>
+                <style>
+                  body { font-family: Arial, sans-serif; }
+                  table { width: 100%; border-collapse: collapse; }
+                  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                  th { background-color: #f2f2f2; }
+                  h1 { text-align: center; }
+                  .filters { margin-bottom: 20px; font-size: 14px; }
+                </style>
+              </head>
+              <body>
+                <h1>Audit Logs</h1>
+                <div class="filters">
+                  <p><strong>Generated:</strong> ${new Date().toLocaleString()} (Local Time)</p>
+                  <p><strong>Time Zone:</strong> ${Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
+                  ${this.filters.action ? `<p><strong>Action:</strong> ${formatAction(this.filters.action)}</p>` : ''}
+                  ${this.filters.role ? `<p><strong>Role:</strong> ${this.filters.role}</p>` : ''}
+                  ${this.filters.fromDate ? `<p><strong>From Date:</strong> ${this.filters.fromDate}</p>` : ''}
+                  ${this.filters.toDate ? `<p><strong>To Date:</strong> ${this.filters.toDate}</p>` : ''}
+                </div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Timestamp</th>
+                      <th>User</th>
+                      <th>Role</th>
+                      <th>Action</th>
+                      <th>IP Address</th>
+                      <th>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${logs.map(log => `
+                      <tr>
+                        <td>${log.id}</td>
+                        <td>${log.timestamp}</td>
+                        <td>${log.username}</td>
+                        <td>${log.user_role}</td>
+                        <td>${formatAction(log.action)}</td>
+                        <td>${log.ip_address || '-'}</td>
+                        <td>${log.details || '-'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </body>
+            </html>
+          `;
+          
+          // 配置PDF选项
+          const opt = {
+            margin: 10,
+            filename: `audit_logs_${new Date().toISOString().slice(0, 10)}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+          };
+          
+          // 生成并下载PDF
+          html2pdf().from(element).set(opt).save();
+        } else {
+          alert('Failed to export logs: ' + (response.message || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error exporting as PDF:', error);
+        alert('Error exporting logs. Please try again later.');
+      } finally {
+        this.loading = false;
+        this.toggleExportOverlay();
+      }
+    },
+    async exportAsCSV() {
+      try {
+        this.loading = true;
+        
+        // 准备查询参数
+        const params = {};
+        if (this.filters.action) params.action = this.filters.action;
+        if (this.filters.fromDate) params.from_date = this.filters.fromDate;
+        if (this.filters.toDate) params.to_date = this.filters.toDate;
+        if (this.filters.userId) params.user_id = this.filters.userId;
+        if (this.filters.role) params.user_role = this.filters.role;
+        
+        // 调用API
+        const response = await exportAuditLogsToCSV(params);
+        
+        if (response.success) {
+          const logs = response.logs;
+          
+          // 准备数据
+          const headers = ['ID', 'Timestamp', 'User', 'Role', 'Action', 'IP Address', 'Details'];
+          const csvData = logs.map(log => [
+            log.id,
+            log.timestamp,
+            log.username,
+            log.user_role,
+            formatAction(log.action),
+            log.ip_address || '',
+            log.details || ''
+          ]);
+          
+          // 添加标题行
+          csvData.unshift(headers);
+          
+          // 转为CSV格式
+          const csvContent = csvData.map(row => 
+            row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+          ).join('\n');
+          
+          // 创建下载链接
+          const encodedUri = encodeURI('data:text/csv;charset=utf-8,' + csvContent);
+          const link = document.createElement('a');
+          link.setAttribute('href', encodedUri);
+          link.setAttribute('download', `audit_logs_${new Date().toISOString().slice(0, 10)}.csv`);
+          document.body.appendChild(link);
+          
+          // 触发下载
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          alert('Failed to export logs: ' + (response.message || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error exporting as CSV:', error);
+        alert('Error exporting logs. Please try again later.');
+      } finally {
+        this.loading = false;
+        this.toggleExportOverlay();
+      }
+    },
+    formatAction(action) {
+      return formatAction(action);
+    },
+    getActionClass(action) {
+      return getActionClass(action);
+    },
+    goBack() {
+      this.$router.go(-1);
+    },
+    startAutoRefresh() {
+      // Clear any existing interval
+      if (this.refreshInterval) {
+        clearInterval(this.refreshInterval);
+      }
+      
+      // Set new interval if autoRefresh is enabled
+      if (this.autoRefresh) {
+        this.refreshInterval = setInterval(() => {
+          this.loadAuditLogs();
+        }, 30000); // 30 seconds
       }
     }
-    error.value = 'Error loading audit logs. Please try again later.'
-  } finally {
-    loading.value = false
-  }
-}
-
-const changePage = (page) => {
-  currentPage.value = page
-  loadAuditLogs()
-}
-
-const resetFilters = () => {
-  filters.value = {
-    action: '',
-    fromDate: '',
-    toDate: '',
-    userId: '',
-    role: ''
-  }
-  currentPage.value = 1
-  loadAuditLogs()
-}
-
-const removeFilter = (filterName) => {
-  filters.value[filterName] = ''
-  currentPage.value = 1
-  loadAuditLogs()
-}
-
-const toggleFilterOverlay = () => {
-  if (!showFilterOverlay.value) {
-    tempFilters.value = { ...filters.value }
-  }
-  showFilterOverlay.value = !showFilterOverlay.value
-}
-
-const toggleExportOverlay = () => {
-  showExportOverlay.value = !showExportOverlay.value
-}
-
-const applyFilters = () => {
-  filters.value = { ...tempFilters.value }
-  currentPage.value = 1
-  loadAuditLogs()
-  toggleFilterOverlay()
-}
-
-const clearTempFilters = () => {
-  tempFilters.value = {
-    action: '',
-    fromDate: '',
-    toDate: '',
-    userId: '',
-    role: ''
-  }
-}
-
-const exportAsPDF = async () => {
-  try {
-    loading.value = true
-    
-    const params = {}
-    if (filters.value.action) params.action = filters.value.action
-    if (filters.value.fromDate) params.from_date = filters.value.fromDate
-    if (filters.value.toDate) params.to_date = filters.value.toDate
-    if (filters.value.userId) params.user_id = filters.value.userId
-    if (filters.value.role) params.user_role = filters.value.role
-    
-    const response = await exportAuditLogsToPDF(params)
-    
-    if (response.success) {
-      const logs = response.logs
-      
-      const html2pdf = require('html2pdf.js')
-      
-      const element = document.createElement('div')
-      element.innerHTML = `
-        <html>
-          <head>
-            <title>Audit Logs - ${new Date().toLocaleDateString()}</title>
-            <style>
-              body { font-family: Arial, sans-serif; }
-              table { width: 100%; border-collapse: collapse; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-              th { background-color: #f2f2f2; }
-              h1 { text-align: center; }
-              .filters { margin-bottom: 20px; font-size: 14px; }
-            </style>
-          </head>
-          <body>
-            <h1>Audit Logs</h1>
-            <div class="filters">
-              <p><strong>Generated:</strong> ${new Date().toLocaleString()} (Local Time)</p>
-              <p><strong>Time Zone:</strong> ${Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
-              ${filters.value.action ? `<p><strong>Action:</strong> ${formatAction(filters.value.action)}</p>` : ''}
-              ${filters.value.role ? `<p><strong>Role:</strong> ${filters.value.role}</p>` : ''}
-              ${filters.value.fromDate ? `<p><strong>From Date:</strong> ${filters.value.fromDate}</p>` : ''}
-              ${filters.value.toDate ? `<p><strong>To Date:</strong> ${filters.value.toDate}</p>` : ''}
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Timestamp</th>
-                  <th>User</th>
-                  <th>Role</th>
-                  <th>Action</th>
-                  <th>IP Address</th>
-                  <th>Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${logs.map(log => `
-                  <tr>
-                    <td>${log.id}</td>
-                    <td>${log.timestamp}</td>
-                    <td>${log.username}</td>
-                    <td>${log.user_role}</td>
-                    <td>${formatAction(log.action)}</td>
-                    <td>${log.ip_address || '-'}</td>
-                    <td>${log.details || '-'}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </body>
-        </html>
-      `
-      
-      const opt = {
-        margin: 10,
-        filename: `audit_logs_${new Date().toISOString().slice(0, 10)}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-      }
-      
-      html2pdf().from(element).set(opt).save()
-    } else {
-      alert('Failed to export logs: ' + (response.message || 'Unknown error'))
+  },
+  watch: {
+    autoRefresh() {
+      this.startAutoRefresh();
     }
-  } catch (error) {
-    console.error('Error exporting as PDF:', error)
-    alert('Error exporting logs. Please try again later.')
-  } finally {
-    loading.value = false
-    toggleExportOverlay()
-  }
-}
-
-const exportAsCSV = async () => {
-  try {
-    loading.value = true
+  },
+  mounted() {
+    // 加载审计日志
+    this.loadAuditLogs();
     
-    const params = {}
-    if (filters.value.action) params.action = filters.value.action
-    if (filters.value.fromDate) params.from_date = filters.value.fromDate
-    if (filters.value.toDate) params.to_date = filters.value.toDate
-    if (filters.value.userId) params.user_id = filters.value.userId
-    if (filters.value.role) params.user_role = filters.value.role
-    
-    const response = await exportAuditLogsToCSV(params)
-    
-    if (response.success) {
-      const logs = response.logs
-      
-      const headers = ['ID', 'Timestamp', 'User', 'Role', 'Action', 'IP Address', 'Details']
-      const csvData = logs.map(log => [
-        log.id,
-        log.timestamp,
-        log.username,
-        log.user_role,
-        formatAction(log.action),
-        log.ip_address || '',
-        log.details || ''
-      ])
-      
-      csvData.unshift(headers)
-      
-      const csvContent = csvData.map(row => 
-        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-      ).join('\n')
-      
-      const encodedUri = encodeURI('data:text/csv;charset=utf-8,' + csvContent)
-      const link = document.createElement('a')
-      link.setAttribute('href', encodedUri)
-      link.setAttribute('download', `audit_logs_${new Date().toISOString().slice(0, 10)}.csv`)
-      document.body.appendChild(link)
-      
-      link.click()
-      document.body.removeChild(link)
-    } else {
-      alert('Failed to export logs: ' + (response.message || 'Unknown error'))
+    // 更新当前时间
+    this.timeDisplayInterval = setInterval(() => {
+      this.currentTimeDisplay = new Date().toLocaleString();
+    }, 1000);
+  },
+  beforeUnmount() {
+    // 清除自动刷新间隔
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
     }
-  } catch (error) {
-    console.error('Error exporting as CSV:', error)
-    alert('Error exporting logs. Please try again later.')
-  } finally {
-    loading.value = false
-    toggleExportOverlay()
+    
+    // 清除时间显示间隔
+    if (this.timeDisplayInterval) {
+      clearInterval(this.timeDisplayInterval);
+    }
   }
-}
-
-const formatAction = (action) => {
-  return formatAction(action)
-}
-
-const getActionClass = (action) => {
-  return getActionClass(action)
-}
-
-const goBack = () => {
-  router.go(-1)
-}
-
-const startAutoRefresh = () => {
-  if (refreshInterval.value) {
-    clearInterval(refreshInterval.value)
-  }
-  
-  if (autoRefresh.value) {
-    refreshInterval.value = setInterval(() => {
-      loadAuditLogs()
-    }, 30000)
-  }
-}
-
-watch(autoRefresh, startAutoRefresh)
-
-onMounted(() => {
-  loadAuditLogs()
-  
-  timeDisplayInterval.value = setInterval(() => {
-    currentTimeDisplay.value = new Date().toLocaleString()
-  }, 1000)
-})
-
-onBeforeUnmount(() => {
-  if (refreshInterval.value) {
-    clearInterval(refreshInterval.value)
-  }
-  
-  if (timeDisplayInterval.value) {
-    clearInterval(timeDisplayInterval.value)
-  }
-})
+};
 </script>
 
 <style scoped>

@@ -231,128 +231,176 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, onMounted, getCurrentInstance } from 'vue'
-import { useRouter } from 'vue-router'
-
-const { proxy } = getCurrentInstance()
-const router = useRouter()
-
-const sections = [
-  { title: 'General', icon: '⚙️' },
-  { title: 'Security', icon: '🔒' },
-  { title: 'Email', icon: '✉️' },
-  { title: 'Backup', icon: '💾' }
-]
-
-const currentSection = ref(0)
-const settings = ref({})
-const originalSettings = ref({})
-const backupHistory = ref([
-  // Example data
-  { date: '2023-07-15 14:30:22', size: '1.2 MB' },
-  { date: '2023-07-08 09:15:47', size: '1.1 MB' }
-])
-const saving = ref(false)
-const error = ref(null)
-
-// 加载设置
-const loadSettings = async () => {
-  try {
-    // 修改前:
-    // const response = await fetch('https://fanum-backend.onrender.com/api/admin/settings')
-    // const data = await response.json()
+<script>
+export default {
+  name: 'AdminSettings',
+  data() {
+    return {
+      sections: [
+        { title: 'General', icon: '⚙️' },
+        { title: 'Security', icon: '🔒' },
+        { title: 'Email', icon: '✉️' },
+        { title: 'Backup', icon: '💾' }
+      ],
+      currentSection: 0,
+      settings: {
+        // General
+        systemName: 'Accounting Tool',
+        itemsPerPage: '15',
+        dateFormat: 'YYYY-MM-DD',
+        autoLogout: true,
+        autoLogoutTime: 30,
+        
+        // Security
+        minPasswordLength: 8,
+        requireUppercase: true,
+        requireLowercase: true,
+        requireNumber: true,
+        requireSpecial: false,
+        maxLoginAttempts: 5,
+        lockoutDuration: 15,
+        
+        // Email
+        smtpServer: '',
+        smtpPort: 587,
+        smtpUsername: '',
+        smtpPassword: '',
+        senderEmail: '',
+        requireEmailVerification: false,
+        
+        // Backup
+        autoBackup: false,
+        backupFrequency: 'weekly',
+        maxBackups: 5
+      },
+      originalSettings: {},
+      backupHistory: [
+        // Example data
+        { date: '2023-07-15 14:30:22', size: '1.2 MB' },
+        { date: '2023-07-08 09:15:47', size: '1.1 MB' }
+      ],
+      saving: false,
+      error: null
+    };
+  },
+  methods: {
+    async loadSettings() {
+      try {
+        // Placeholder for future API integration
+        /*
+        const response = await axios.get('/api/admin/settings', { 
+          withCredentials: true 
+        });
+        
+        if (response.data.success) {
+          this.settings = { ...response.data.settings };
+          this.originalSettings = { ...response.data.settings };
+        }
+        */
+        
+        // For now, just keep the default values
+        this.originalSettings = { ...this.settings };
+      } catch (err) {
+        console.error('Error loading settings:', err);
+        this.error = 'Failed to load settings. Please try again later.';
+      }
+    },
     
-    // 修改后:
-    const response = await proxy.$axios.get('/api/admin/settings')
-    const data = response.data
+    async saveSettings() {
+      this.saving = true;
+      
+      try {
+        // Placeholder for future API integration
+        /*
+        const response = await axios.post('/api/admin/settings', this.settings, { 
+          withCredentials: true 
+        });
+        
+        if (response.data.success) {
+          this.originalSettings = { ...this.settings };
+          alert('Settings saved successfully!');
+        } else {
+          alert(response.data.message || 'Failed to save settings.');
+        }
+        */
+        
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Just for demo
+        this.originalSettings = { ...this.settings };
+        alert('Settings saved successfully!');
+      } catch (err) {
+        console.error('Error saving settings:', err);
+        alert('Error saving settings. Please try again later.');
+      } finally {
+        this.saving = false;
+      }
+    },
     
-    settings.value = data
-    originalSettings.value = { ...data }
-  } catch (error) {
-    console.error('Error loading settings:', error)
-    error.value = 'Failed to load settings. Please try again later.'
-  }
-}
-
-// 保存设置
-const saveSettings = async () => {
-  saving.value = true
-  
-  try {
-    // 修改前:
-    // const response = await fetch('https://fanum-backend.onrender.com/api/admin/settings', {
-    //   method: 'PUT',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(settingsData)
-    // })
+    resetSettings() {
+      if (confirm('Are you sure you want to reset all settings to default?')) {
+        this.settings = { ...this.originalSettings };
+      }
+    },
     
-    // 修改后:
-    const response = await proxy.$axios.put('/api/admin/settings', settings.value)
+    async backupNow() {
+      try {
+        // Placeholder for future API integration
+        /*
+        const response = await axios.post('/api/admin/backup', {}, { 
+          withCredentials: true 
+        });
+        
+        if (response.data.success) {
+          this.backupHistory.unshift(response.data.backup);
+          alert('Backup created successfully!');
+        } else {
+          alert(response.data.message || 'Failed to create backup.');
+        }
+        */
+        
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Add dummy backup for demo
+        const now = new Date();
+        this.backupHistory.unshift({
+          date: now.toLocaleString(),
+          size: '1.3 MB'
+        });
+        alert('Backup created successfully!');
+      } catch (err) {
+        console.error('Error creating backup:', err);
+        alert('Error creating backup. Please try again later.');
+      }
+    },
     
-    // 处理响应...
-    originalSettings.value = { ...settings.value }
-    alert('Settings saved successfully!')
-  } catch (error) {
-    console.error('Error saving settings:', error)
-    alert('Error saving settings. Please try again later.')
-  } finally {
-    saving.value = false
-  }
-}
-
-const resetSettings = () => {
-  if (confirm('Are you sure you want to reset all settings to default?')) {
-    settings.value = { ...originalSettings.value }
-  }
-}
-
-const backupNow = async () => {
-  try {
-    // 修改前:
-    // const response = await fetch('https://fanum-backend.onrender.com/api/admin/backup')
-    // const data = await response.json()
+    restoreBackup() {
+      alert('This feature will be implemented in a future release.');
+    },
     
-    // 修改后:
-    const response = await proxy.$axios.post('/api/admin/backup')
+    downloadBackup(backup) {
+      alert(`Downloading backup from ${backup.date}...`);
+    },
     
-    // 处理响应...
-    const now = new Date()
-    backupHistory.value.unshift({
-      date: now.toLocaleString(),
-      size: '1.3 MB'
-    })
-    alert('Backup created successfully!')
-  } catch (error) {
-    console.error('Error creating backup:', error)
-    alert('Error creating backup. Please try again later.')
-  }
-}
-
-const restoreBackup = () => {
-  alert('This feature will be implemented in a future release.')
-}
-
-const downloadBackup = (backup) => {
-  alert(`Downloading backup from ${backup.date}...`)
-}
-
-const deleteBackup = (backup) => {
-  if (confirm(`Are you sure you want to delete the backup from ${backup.date}?`)) {
-    const index = backupHistory.value.indexOf(backup)
-    if (index !== -1) {
-      backupHistory.value.splice(index, 1)
+    deleteBackup(backup) {
+      if (confirm(`Are you sure you want to delete the backup from ${backup.date}?`)) {
+        const index = this.backupHistory.indexOf(backup);
+        if (index !== -1) {
+          this.backupHistory.splice(index, 1);
+        }
+      }
+    },
+    
+    goBack() {
+      this.$router.go(-1);
     }
+  },
+  mounted() {
+    this.loadSettings();
   }
-}
-
-const goBack = () => {
-  router.go(-1)
-}
-
-onMounted(() => {
-  loadSettings()
-})
+};
 </script>
 
 <style scoped>

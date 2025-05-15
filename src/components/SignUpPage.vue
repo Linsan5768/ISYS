@@ -3,11 +3,10 @@ import { ref, reactive, onMounted, getCurrentInstance } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from '@/composables/useTheme.js'
 
-const { proxy } = getCurrentInstance()
-const router = useRouter()
-
 // Get theme functionality
 useTheme()
+const router = useRouter()
+const { proxy } = getCurrentInstance()
 
 // Registration form data
 const registerForm = reactive({
@@ -109,29 +108,32 @@ const handleRegister = async () => {
     return
   }
   
-  isLoading.value = true
-  registerError.value = ''
-  
   try {
+    isLoading.value = true
     console.log('Starting registration:', registerForm.email, 'role:', registerForm.role)
     
+    console.log('Registration with global axios instance')
+    
     const response = await proxy.$axios.post('/api/auth/register', {
-      username: registerForm.givenName + ' ' + registerForm.familyName,
       email: registerForm.email,
+      givenName: registerForm.givenName,
+      familyName: registerForm.familyName,
+      phone: '+61' + registerForm.phone, // Ensure +61 prefix is added
       password: registerForm.password,
-      role: registerForm.role,
-      phone: '+61' + registerForm.phone
+      role: registerForm.role
     })
     
-    console.log('Registration response status:', response.status, response.statusText)
+    console.log('Registration response status:', response.status)
+    const result = response.data
+    console.log('Registration response data:', result)
     
-    if (response.status === 200) {
+    if (response.status === 200 && result.success) {
       // Redirect to login page after successful registration
       alert('REGISTRATION SUCCESSFUL')
       router.push('/login')
     } else {
-      registerError.value = 'REGISTRATION FAILED, PLEASE TRY AGAIN LATER'
-      console.error('Registration failed:', response.statusText)
+      registerError.value = result.message || 'REGISTRATION FAILED'
+      console.error('Registration failed:', result.message || 'Unknown error')
     }
   } catch (error) {
     console.error('Error during registration process:', error)

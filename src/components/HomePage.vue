@@ -1,10 +1,11 @@
 <script setup>
-import { ref, onMounted, watch, inject } from 'vue'
+import { ref, onMounted, watch, inject, getCurrentInstance } from 'vue'
 import { useTheme } from '@/composables/useTheme.js'
 import { useRouter } from 'vue-router'
 
 const { themeName } = useTheme()
 const router = useRouter()
+const { proxy } = getCurrentInstance()
 
 // 用户角色状态
 const userRole = ref(null)
@@ -12,16 +13,10 @@ const userRole = ref(null)
 // 获取用户信息
 const fetchUserInfo = async () => {
   try {
-    const response = await fetch('/api/auth/verify', {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
+    const response = await proxy.$axios.get('/api/auth/verify')
     
-    if (response.ok) {
-      const data = await response.json()
+    if (response.status === 200) {
+      const data = response.data
       if (data.success && data.user) {
         userRole.value = data.user.role
         console.log('User role:', userRole.value)

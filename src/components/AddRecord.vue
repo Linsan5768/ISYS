@@ -547,7 +547,7 @@ export default {
           });
           
           // Ensure API endpoint is correct - adjust based on actual interface
-          const res = await axios.post("/api/submit_tax_form", {
+          const res = await this.$axios.post("/api/submit_tax_form", {
             date: this.form.date,
             declaration_type: this.form.declarationType,
             address: this.form.address,
@@ -730,7 +730,7 @@ export default {
     async getUserRole() {
       try {
         // Replace with your actual API endpoint to get user role
-        const res = await axios.get('/api/auth/user')
+        const res = await this.$axios.get('/api/auth/user')
         this.userRole = res.data.role || 'individual'
         this.setDeclarationTypesByRole()
       } catch (err) {
