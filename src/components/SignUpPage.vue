@@ -114,14 +114,21 @@ const handleRegister = async () => {
     
     console.log('Registration with global axios instance')
     
-    const response = await proxy.$axios.post('/api/auth/register', {
+    // Try alternative payload format to match backend requirements
+    const payload = {
       email: registerForm.email,
-      givenName: registerForm.givenName,
-      familyName: registerForm.familyName,
-      phone: '+61' + registerForm.phone, // Ensure +61 prefix is added
+      name: `${registerForm.givenName} ${registerForm.familyName}`,
+      firstName: registerForm.givenName,
+      lastName: registerForm.familyName,
+      phone: `+61${registerForm.phone}`,
       password: registerForm.password,
-      role: registerForm.role
-    })
+      role: registerForm.role,
+      username: registerForm.email.split('@')[0] // Generate username from email
+    }
+    
+    console.log('Registration payload:', payload)
+    
+    const response = await proxy.$axios.post('/api/auth/register', payload)
     
     console.log('Registration response status:', response.status)
     const result = response.data
@@ -137,7 +144,12 @@ const handleRegister = async () => {
     }
   } catch (error) {
     console.error('Error during registration process:', error)
-    registerError.value = 'REGISTRATION FAILED, PLEASE TRY AGAIN LATER'
+    // Display backend error message if available
+    if (error.response && error.response.data && error.response.data.message) {
+      registerError.value = error.response.data.message
+    } else {
+      registerError.value = 'REGISTRATION FAILED, PLEASE TRY AGAIN LATER'
+    }
   } finally {
     isLoading.value = false
   }

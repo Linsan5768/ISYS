@@ -31,9 +31,30 @@ axiosInstance.interceptors.request.use(
         config.headers.Authorization = `Bearer ${user.token}`
       }
     }
+    console.log(`API Request: ${config.method.toUpperCase()} ${config.url}`)
     return config
   },
   error => Promise.reject(error)
+)
+
+// ✅ 添加响应拦截器
+axiosInstance.interceptors.response.use(
+  response => {
+    // 成功响应处理
+    console.log(`API Response Success: ${response.config.url}`)
+    return response
+  },
+  error => {
+    // 错误响应处理
+    console.error('API Response Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data
+    })
+    return Promise.reject(error)
+  }
 )
 
 // ✅ 创建 Vue 应用
