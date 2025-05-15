@@ -7,28 +7,34 @@
   </div>
 </template>
 
-<script>
-import axios from "axios";
-import API_BASE_URL from "../config.js"; // 引入 API 地址
+<script setup>
+import { ref, onMounted, getCurrentInstance } from 'vue'
 
-export default {
-  data() {
-    return {
-      data: null,
-      error: null,
-    };
-  },
-  methods: {
-    async fetchData() {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/get_records`);
-        this.data = response.data;
-      } catch (err) {
-        this.error = err.message;
-      }
-    },
-  },
-};
+const { proxy } = getCurrentInstance()
+const apiResponse = ref('No data yet')
+const isLoading = ref(false)
+
+const testBackendConnection = async () => {
+  isLoading.value = true
+  try {
+    // 修改前:
+    // const response = await fetch('https://fanum-backend.onrender.com/api/test')
+    // const data = await response.json()
+    
+    // 修改后:
+    const response = await proxy.$axios.get('/api/test')
+    const data = response.data
+    
+    apiResponse.value = JSON.stringify(data, null, 2)
+  } catch (error) {
+    console.error('Backend connection error:', error)
+    apiResponse.value = `Error: ${error.message}`
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(testBackendConnection)
 </script>
 
 <style scoped>

@@ -1,13 +1,15 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, getCurrentInstance } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from '@/composables/useTheme.js'
-import { useAuth } from '@/composables/useAuth.js'
+import { useAuth } from '../composables/useAuth'
+
+const { proxy } = getCurrentInstance()
+const router = useRouter()
+const { login, isAuthenticated } = useAuth()
 
 // Get theme functionality
 useTheme()
-const router = useRouter()
-const { login, isAuthenticated } = useAuth()
 
 // Redirect if already logged in
 onMounted(() => {
@@ -28,64 +30,43 @@ const isLoading = ref(false)
 
 // Handle login submit
 const handleLogin = async () => {
-  // Reset error message
+  isLoading.value = true
   loginError.value = ''
   
-  // Basic validation
-  if (!loginForm.email || !loginForm.password) {
-    loginError.value = 'EMAIL AND PASSWORD ARE REQUIRED'
-    return
-  }
-  
-  // 验证邮箱格式
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(loginForm.email)) {
-    loginError.value = 'PLEASE ENTER A VALID EMAIL ADDRESS'
-    return
-  }
-  
   try {
-    isLoading.value = true
     console.log('Login attempt:', loginForm.email)
     
-    // Make API request to backend - build the URL with the current host
-    const apiUrl = window.location.protocol + '//' + window.location.host + '/api/auth/login'
-    console.log('Login API URL:', apiUrl)
+    // 修改前: 
+    // const apiUrl = 'https://fanum-frontend.vercel.app/api/auth/login'
+    // console.log('Login API URL:', apiUrl)
+    // const response = await fetch(apiUrl, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(loginForm)
+    // })
     
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        email: loginForm.email,
-        password: loginForm.password
-      }),
-      credentials: 'include' // Include credentials like cookies if needed
-    })
+    // 修改后:
+    console.log('Login with global axios instance')
+    const response = await proxy.$axios.post('/api/auth/login', loginForm)
     
-    console.log('Login response status:', response.status, response.statusText)
-    const result = await response.json()
-    console.log('Login response data:', result)
+    console.log('Login response status:', response.status)
     
-    if (response.ok && result.success) {
-      // Use auth composable to login
-      login({
-        email: result.user.email,
-        isLoggedIn: true,
-        token: result.user.email,
-        role: result.user.role // Store the user's role
-      })
+    // 修改前:
+    // if (response.ok) {
+    //   const data = await response.json()
+    
+    // 修改后:
+    if (response.status === 200) {
+      const data = response.data
       
-      // Redirect to home page
+      login(data)
       router.push('/home')
     } else {
-      loginError.value = result.message || 'EMAIL OR PASSWORD IS INCORRECT'
-      console.error('Login failed:', result.message || 'Unknown error')
+      loginError.value = 'Login failed. Please check your credentials.'
     }
   } catch (error) {
-    console.error('Error during login process:', error)
-    loginError.value = 'LOGIN FAILED, PLEASE TRY AGAIN LATER'
+    console.log(' Error during login process:', error)
+    loginError.value = 'Error during login. Please try again later.'
   } finally {
     isLoading.value = false
   }

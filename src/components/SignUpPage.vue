@@ -1,11 +1,13 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, getCurrentInstance } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from '@/composables/useTheme.js'
 
+const { proxy } = getCurrentInstance()
+const router = useRouter()
+
 // Get theme functionality
 useTheme()
-const router = useRouter()
 
 // Registration form data
 const registerForm = reactive({
@@ -107,41 +109,29 @@ const handleRegister = async () => {
     return
   }
   
+  isLoading.value = true
+  registerError.value = ''
+  
   try {
-    isLoading.value = true
     console.log('Starting registration:', registerForm.email, 'role:', registerForm.role)
     
-    // Make API request to backend - build the URL with the current host
-    const apiUrl = window.location.protocol + '//' + window.location.host + '/api/auth/register'
-    console.log('Registration API URL:', apiUrl)
-    
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        email: registerForm.email,
-        givenName: registerForm.givenName,
-        familyName: registerForm.familyName,
-        phone: '+61' + registerForm.phone, // Ensure +61 prefix is added
-        password: registerForm.password,
-        role: registerForm.role
-      }),
-      credentials: 'include' // Include credentials like cookies if needed
+    const response = await proxy.$axios.post('/api/auth/register', {
+      username: registerForm.givenName + ' ' + registerForm.familyName,
+      email: registerForm.email,
+      password: registerForm.password,
+      role: registerForm.role,
+      phone: '+61' + registerForm.phone
     })
     
     console.log('Registration response status:', response.status, response.statusText)
-    const result = await response.json()
-    console.log('Registration response data:', result)
     
-    if (response.ok && result.success) {
+    if (response.status === 200) {
       // Redirect to login page after successful registration
       alert('REGISTRATION SUCCESSFUL')
       router.push('/login')
     } else {
-      registerError.value = result.message || 'REGISTRATION FAILED'
-      console.error('Registration failed:', result.message || 'Unknown error')
+      registerError.value = 'REGISTRATION FAILED, PLEASE TRY AGAIN LATER'
+      console.error('Registration failed:', response.statusText)
     }
   } catch (error) {
     console.error('Error during registration process:', error)
