@@ -2,14 +2,13 @@
 import { ref, reactive, onMounted, getCurrentInstance } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from '@/composables/useTheme.js'
-import { useAuth } from '../composables/useAuth'
-
-const { proxy } = getCurrentInstance()
-const router = useRouter()
-const { login, isAuthenticated } = useAuth()
+import { useAuth } from '@/composables/useAuth.js'
 
 // Get theme functionality
 useTheme()
+const router = useRouter()
+const { login, isAuthenticated } = useAuth()
+const { proxy } = getCurrentInstance()
 
 // Redirect if already logged in
 onMounted(() => {
@@ -33,10 +32,17 @@ const handleLogin = async () => {
   isLoading.value = true
   loginError.value = ''
   
+  // Validate input
+  if (!loginForm.email || !loginForm.password) {
+    loginError.value = 'Email and password are required'
+    isLoading.value = false
+    return
+  }
+  
   try {
     console.log('Login attempt:', loginForm.email)
     
-    // 修改前: 
+    // 注释掉的原始代码
     // const apiUrl = 'https://fanum-frontend.vercel.app/api/auth/login'
     // console.log('Login API URL:', apiUrl)
     // const response = await fetch(apiUrl, {
@@ -51,22 +57,41 @@ const handleLogin = async () => {
     
     console.log('Login response status:', response.status)
     
-    // 修改前:
-    // if (response.ok) {
-    //   const data = await response.json()
-    
-    // 修改后:
     if (response.status === 200) {
       const data = response.data
       
-      login(data)
+      // Ensure we have the necessary data
+      if (!data) {
+        throw new Error('Invalid response from server: no data returned');
+      }
+      
+      if (data.error) {
+        loginError.value = data.error || 'Login failed';
+        return;
+      }
+      
+      // Store user info with token
+      const userData = {
+        email: loginForm.email,
+        token: data.token || data.accessToken,
+        ...data.user
+      };
+      
+      login(userData)
       router.push('/home')
     } else {
       loginError.value = 'Login failed. Please check your credentials.'
     }
   } catch (error) {
-    console.log(' Error during login process:', error)
-    loginError.value = 'Error during login. Please try again later.'
+    console.log('Error during login process:', error)
+    
+    // Display specific error message from backend if available
+    if (error.response && error.response.data) {
+      const errorData = error.response.data;
+      loginError.value = errorData.message || errorData.error || 'Login failed';
+    } else {
+      loginError.value = 'Error during login. Please try again later.'
+    }
   } finally {
     isLoading.value = false
   }

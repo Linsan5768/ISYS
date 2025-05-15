@@ -1,5 +1,6 @@
-import { ref, computed, readonly } from 'vue'
+import { ref, computed, readonly, inject } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 // Create a reactive state that will be shared across all component instances
 const currentUser = ref(null)
@@ -35,17 +36,16 @@ export function useAuth() {
   // Fetch user role if not provided
   const fetchUserRole = async (userData) => {
     try {
-      const response = await fetch('/api/auth/verify', {
-        method: 'GET',
-        credentials: 'include',
+      const axiosInstance = axios.create({
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${userData.token}`
         }
       })
       
-      if (response.ok) {
-        const data = await response.json()
+      const response = await axiosInstance.get('/api/auth/verify')
+      
+      if (response.status === 200) {
+        const data = response.data
         if (data.success && data.user && data.user.role) {
           userData.role = data.user.role
           currentUser.value = userData
@@ -71,23 +71,21 @@ export function useAuth() {
     }
     
     try {
-      // Call the verify endpoint
-      const response = await fetch('/api/auth/verify', {
-        method: 'GET',
-        credentials: 'include',
+      const axiosInstance = axios.create({
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${currentUser.value.token}`
         }
       })
       
-      if (!response.ok) {
+      const response = await axiosInstance.get('/api/auth/verify')
+      
+      if (response.status !== 200) {
         logout()
         return false
       }
       
       // Update user info if needed
-      const data = await response.json()
+      const data = response.data
       if (data.success && data.user) {
         if (!currentUser.value.role && data.user.role) {
           currentUser.value.role = data.user.role
