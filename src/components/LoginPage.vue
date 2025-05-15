@@ -42,16 +42,6 @@ const handleLogin = async () => {
   try {
     console.log('Login attempt:', loginForm.email)
     
-    // 注释掉的原始代码
-    // const apiUrl = 'https://fanum-frontend.vercel.app/api/auth/login'
-    // console.log('Login API URL:', apiUrl)
-    // const response = await fetch(apiUrl, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(loginForm)
-    // })
-    
-    // 修改后:
     console.log('Login with global axios instance')
     const response = await proxy.$axios.post('/api/auth/login', loginForm)
     
@@ -74,11 +64,17 @@ const handleLogin = async () => {
       const userData = {
         email: loginForm.email,
         token: data.token || data.accessToken,
+        isLoggedIn: true, // 添加登录状态标志
         ...data.user
       };
       
-      login(userData)
-      router.push('/home')
+      console.log('Login successful. Navigating to home page...');
+      login(userData);
+      
+      // 使用 nextTick 确保 Vue 完成状态更新后再导航
+      setTimeout(() => {
+        router.push({ name: 'HomePage' });
+      }, 100);
     } else {
       loginError.value = 'Login failed. Please check your credentials.'
     }
