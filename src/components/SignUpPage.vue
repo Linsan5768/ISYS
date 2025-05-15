@@ -135,9 +135,42 @@ const handleRegister = async () => {
     console.log('Registration response data:', result)
     
     if (response.status === 200 && result.success) {
-      // Redirect to login page after successful registration
-      alert('REGISTRATION SUCCESSFUL')
-      router.push('/login')
+      // Auto login after successful registration
+      try {
+        console.log('Attempting auto-login after registration')
+        const loginPayload = {
+          email: registerForm.email,
+          password: registerForm.password
+        }
+        
+        const loginResponse = await proxy.$axios.post('/api/auth/login', loginPayload)
+        console.log('Auto-login response:', loginResponse)
+        
+        if (loginResponse.status === 200 && loginResponse.data) {
+          const userData = loginResponse.data
+          
+          // Store user data in localStorage
+          localStorage.setItem('user', JSON.stringify({
+            ...userData,
+            isLoggedIn: true
+          }))
+          
+          // Set token for API calls
+          localStorage.setItem('token', userData.token)
+          
+          // Redirect directly to homepage
+          console.log('Registration and auto-login successful, redirecting to homepage')
+          router.push('/home')
+        } else {
+          // If auto-login fails, redirect to login page
+          alert('REGISTRATION SUCCESSFUL - PLEASE LOG IN')
+          router.push('/login')
+        }
+      } catch (loginError) {
+        console.error('Auto-login failed after registration:', loginError)
+        alert('REGISTRATION SUCCESSFUL - PLEASE LOG IN')
+        router.push('/login')
+      }
     } else {
       registerError.value = result.message || 'REGISTRATION FAILED'
       console.error('Registration failed:', result.message || 'Unknown error')
