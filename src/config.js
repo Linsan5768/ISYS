@@ -1,4 +1,7 @@
+const apiBaseUrl = 'https://cors-anywhere.herokuapp.com/https://fanum-backend.onrender.com'
+const isGitHubPages = false
+
 export default {
-  apiBaseUrl: 'https://fanum-backend.onrender.com',
-  isGitHubPages: false
+  apiBaseUrl,
+  isGitHubPages
 }
