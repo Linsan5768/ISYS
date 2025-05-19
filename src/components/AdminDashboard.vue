@@ -375,8 +375,13 @@ export default {
         // 准备查询参数，使用当前筛选条件
         const params = {};
         if (this.filters.action) params.action = this.filters.action;
-        if (this.filters.fromDate) params.from_date = this.filters.fromDate;
-        if (this.filters.toDate) params.to_date = this.filters.toDate;
+        // Convert dates to UTC for the export API call
+        if (this.filters.fromDate) {
+          params.from_date = convertToUTCTime(new Date(this.filters.fromDate));
+        }
+        if (this.filters.toDate) {
+          params.to_date = convertToUTCTime(new Date(this.filters.toDate));
+        }
         if (this.filters.userId) params.user_id = this.filters.userId;
         if (this.filters.role) params.user_role = this.filters.role;
         

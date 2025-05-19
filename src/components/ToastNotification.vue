@@ -2,8 +2,8 @@
   <transition name="toast-fade">
     <div 
       v-if="show" 
-      class="toast-container"
-      :class="[`toast-${type}`, position]"
+      class="toast-instance" 
+      :class="[`toast-${type}`]" 
     >
       <div class="toast-icon" v-if="icon">
         {{ icon }}
@@ -12,15 +12,19 @@
         <div class="toast-title" v-if="title">{{ title }}</div>
         <div class="toast-message">{{ message }}</div>
       </div>
-      <div class="toast-close" @click="close" v-if="showClose">×</div>
+      <div class="toast-close" @click="triggerClose" v-if="showClose">×</div>
     </div>
   </transition>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 
 const props = defineProps({
+  id: {
+    type: [String, Number],
+    required: false
+  },
   title: {
     type: String,
     default: ''
@@ -38,25 +42,17 @@ const props = defineProps({
     default: 'info',
     validator: (value) => ['success', 'error', 'info', 'warning'].includes(value)
   },
-  position: {
-    type: String,
-    default: 'top-right',
-    validator: (value) => ['top-right', 'top-center', 'top-left', 'bottom-right', 'bottom-center', 'bottom-left'].includes(value)
-  },
   showClose: {
     type: Boolean,
     default: true
-  },
-  onClose: {
-    type: Function,
-    default: () => {}
   }
 });
+
+const emit = defineEmits(['close']);
 
 const show = ref(true);
 let timer = null;
 
-// Icon based on type
 const icon = computed(() => {
   switch (props.type) {
     case 'success': return '✓';
@@ -67,31 +63,36 @@ const icon = computed(() => {
   }
 });
 
-// Close the toast
-const close = () => {
+const triggerClose = () => {
   show.value = false;
   if (timer) clearTimeout(timer);
-  props.onClose();
+  emit('close');
 };
 
-// Auto close after duration
 onMounted(() => {
   if (props.duration > 0) {
     timer = setTimeout(() => {
-      close();
+      show.value = false;
     }, props.duration);
   }
 });
 
-// Clean up
+watch(() => props.duration, (newDuration) => {
+  if (timer) clearTimeout(timer);
+  if (newDuration > 0) {
+    timer = setTimeout(() => {
+      show.value = false;
+    }, newDuration);
+  }
+});
+
 onUnmounted(() => {
   if (timer) clearTimeout(timer);
 });
 </script>
 
 <style scoped>
-.toast-container {
-  position: fixed;
+.toast-instance {
   display: flex;
   align-items: center;
   min-width: 250px;
@@ -100,45 +101,11 @@ onUnmounted(() => {
   border-radius: 10px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(8px);
-  z-index: 9999;
-  margin: 10px;
   animation: toast-in 0.3s ease-out;
+  background-clip: padding-box;
+  border: 1px solid transparent;
 }
 
-/* Positions */
-.top-right {
-  top: 20px;
-  right: 20px;
-}
-
-.top-center {
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.top-left {
-  top: 20px;
-  left: 20px;
-}
-
-.bottom-right {
-  bottom: 20px;
-  right: 20px;
-}
-
-.bottom-center {
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.bottom-left {
-  bottom: 20px;
-  left: 20px;
-}
-
-/* Types */
 .toast-success {
   background-color: rgba(87, 217, 163, 0.95);
   color: white;
@@ -194,26 +161,24 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-/* Transitions */
 .toast-fade-enter-active,
 .toast-fade-leave-active {
-  transition: all 0.3s;
+  transition: opacity 0.3s, transform 0.3s;
 }
 
 .toast-fade-enter-from,
 .toast-fade-leave-to {
   opacity: 0;
-  transform: translateY(-20px);
 }
 
 @keyframes toast-in {
   0% {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: scale(0.9) translateY(-10px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1) translateY(0);
   }
 }
 </style> 

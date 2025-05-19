@@ -163,12 +163,10 @@ const handleRegister = async () => {
           router.push('/home')
         } else {
           // If auto-login fails, redirect to login page
-          alert('REGISTRATION SUCCESSFUL - PLEASE LOG IN')
           router.push('/login')
         }
       } catch (loginError) {
         console.error('Auto-login failed after registration:', loginError)
-        alert('REGISTRATION SUCCESSFUL - PLEASE LOG IN')
         router.push('/login')
       }
     } else {

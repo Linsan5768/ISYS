@@ -1,5 +1,8 @@
 <template>
   <div id="app">
+    <!-- Toast Notifications Wrapper -->
+    <ToastWrapper />
+    
     <!-- 导航栏 -->
     <nav class="navbar" v-if="isAuthenticated">
       <div class="menu-container">
@@ -84,15 +87,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick, provide } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, provide, watch } from 'vue'
 import { useAuth } from './composables/useAuth'
 import { useRouter, useRoute } from 'vue-router'
 import UserInfoFooter from './components/UserInfoFooter.vue'
 import InactivityWarning from './components/InactivityWarning.vue'
-import toast from './services/toast'
+import ToastWrapper from './components/ToastWrapper.vue'
+import toastService from './services/toast'
 
-// 提供toast服务给所有组件
-provide('toast', toast)
+// Provide the new toastService globally
+provide('toast', toastService)
 
 // 路由
 const router = useRouter()
@@ -157,11 +161,11 @@ onMounted(() => {
     window.addEventListener(event, resetInactivityTimer)
   })
   
-  // 检查是否有已保存的表单草稿
-  checkSavedDrafts()
-  
-  // 检查即将到期的税务负债
-  checkUpcomingTaxLiabilities()
+  // 只有在初始加载时用户已认证才检查草稿和负债
+  if (isAuthenticated.value) {
+    checkSavedDrafts()
+    checkUpcomingTaxLiabilities()
+  }
   
   // 清除所有通知和提醒记录
   clearAllNotifications()
@@ -170,16 +174,54 @@ onMounted(() => {
   loadNotifications()
 })
 
+// 监听认证状态变化
+watch(isAuthenticated, (newValue, oldValue) => {
+  if (newValue === true && oldValue === false) {
+    // 用户从"未登录"变为"已登录"
+    checkSavedDrafts() 
+    checkUpcomingTaxLiabilities() 
+    // 重新加载通知，确保新用户的通知被正确加载
+    loadNotifications()
+    // 重置活动计时器，因为用户刚刚执行了操作（登录）
+    resetInactivityTimer()
+  }
+  if (newValue === false && oldValue === true) {
+    // 用户从"已登录"变为"未登录"
+    // 清除可能存在的计时器
+    if (inactivityTimer) {
+      clearTimeout(inactivityTimer)
+      inactivityTimer = null
+    }
+    // 清除通知，避免显示前一个用户的通知
+    notifications.value = [] 
+    saveNotifications() // 保存空的通知列表到localStorage
+  }
+});
+
 // 检查已保存的表单草稿
 const checkSavedDrafts = () => {
+  // Prevent this check for admin users
+  if (isAdmin.value) {
+    console.log('Admin user, skipping saved drafts check.');
+    return;
+  }
   try {
+    const currentUser = localStorage.getItem('user');
+    if (!currentUser) {
+      return;
+    }
+    const userObj = JSON.parse(currentUser);
+    if (!userObj.isLoggedIn) {
+      return;
+    }
+
     const taxForms = JSON.parse(localStorage.getItem('taxForms') || '[]')
     const draftForms = taxForms.filter(form => form.status === 'Saved as Draft')
     
     if (draftForms.length > 0) {
       // 延迟一下显示通知，让页面先加载完成
       setTimeout(() => {
-        toast.info(`You have ${draftForms.length} saved draft${draftForms.length > 1 ? 's' : ''} waiting to be submitted`, {
+        toastService.info(`You have ${draftForms.length} saved draft${draftForms.length > 1 ? 's' : ''} waiting to be submitted`, {
           title: 'Saved Forms',
           duration: 5000
         })
@@ -221,7 +263,7 @@ const checkUpcomingTaxLiabilities = () => {
     if (isAdmin.value) {
       // 只添加管理员专属通知
       setTimeout(() => {
-        toast.info('Administrative view allows flagging unresolved or repeated errors for further review', {
+        toastService.info('Administrative view allows flagging unresolved or repeated errors for further review', {
           title: 'Admin Features',
           duration: 10000
         })
@@ -295,7 +337,7 @@ const checkUpcomingTaxLiabilities = () => {
         const totalAmount = currentTaxLiabilities.reduce((sum, item) => sum + item.amount, 0)
         
         // 显示汇总通知
-        toast.warning(`You have ${currentTaxLiabilities.length} tax liabilities totaling ${new Intl.NumberFormat('en-US', { 
+        toastService.warning(`You have ${currentTaxLiabilities.length} tax liabilities totaling ${new Intl.NumberFormat('en-US', { 
           style: 'currency', 
           currency: 'USD'
         }).format(totalAmount)}`, {
@@ -410,6 +452,13 @@ const navigateToNotifications = () => {
 
 // 添加通知
 const addNotification = (notification) => {
+  // Prevent adding form-related notifications for admin users
+  const formRelatedTitles = ['Saved Forms', 'Form Submitted', 'Form Saved', 'Form Error'];
+  if (isAdmin.value && formRelatedTitles.includes(notification.title)) {
+    console.log(`Admin user, skipping form-related notification: "${notification.title}"`);
+    return;
+  }
+
   // 获取当前用户ID
   const currentUser = localStorage.getItem('user');
   if (!currentUser) {
@@ -510,7 +559,7 @@ const loadNotifications = () => {
 
 // 处理表单提交成功
 const handleFormSubmitted = (data) => {
-  toast.success('Form submitted successfully!', {
+  toastService.success('Form submitted successfully!', {
     duration: 4000
   })
   
@@ -524,7 +573,7 @@ const handleFormSubmitted = (data) => {
 
 // 处理表单保存成功
 const handleFormSaved = (data) => {
-  toast.success('Form saved as draft successfully!', {
+  toastService.success('Form saved as draft successfully!', {
     duration: 4000
   })
   
@@ -538,7 +587,7 @@ const handleFormSaved = (data) => {
 
 // 处理表单错误
 const handleFormError = (error) => {
-  toast.error(`Form error: ${error}`, {
+  toastService.error(`Form error: ${error}`, {
     duration: 5000
   })
   
@@ -566,6 +615,13 @@ const formatTime = (timestamp) => {
 // 向全局暴露通知API
 provide('notifications', {
   addNotification: (notification) => {
+    // Prevent adding form-related notifications for admin users
+    const formRelatedTitles = ['Saved Forms', 'Form Submitted', 'Form Saved', 'Form Error'];
+    if (isAdmin.value && formRelatedTitles.includes(notification.title)) {
+      console.log(`Admin user, skipping form-related notification via global API: "${notification.title}"`);
+      return;
+    }
+    
     // 获取当前用户ID
     const currentUser = localStorage.getItem('user');
     if (!currentUser) {

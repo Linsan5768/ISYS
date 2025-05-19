@@ -10,6 +10,16 @@
       
       <!-- 编辑模式 -->
       <form v-if="!isReviewMode" @submit.prevent="reviewForm">
+        <!-- Filling Progress Bar -->
+        <div v-if="!isReviewMode && formCompletenessComputed.total > 0" class="progress-section">
+          <label class="progress-label">Form Progress: {{ formCompletenessComputed.filled }} / {{ formCompletenessComputed.total }} fields completed</label>
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" :style="{ width: formCompletenessComputed.percentage + '%' }">
+              {{ formCompletenessComputed.percentage }}%
+            </div>
+          </div>
+        </div>
+
         <div class="form-content">
           <!-- Date and Declaration Type on the same row -->
           <div class="form-row">
@@ -437,7 +447,7 @@ export default {
       editingField: null,
       formVerified: false,
       savedForms: [], // Store all saved forms with their status
-      isReadOnly: false // For submitted forms that can't be edited
+      isReadOnly: false, // For submitted forms that can't be edited
     }
   },
   props: {
@@ -459,6 +469,48 @@ export default {
       success: msg => console.log('Toast success:', msg),
       error: msg => console.error('Toast error:', msg),
       info: msg => console.info('Toast info:', msg)
+    }
+  },
+  computed: {
+    formCompletenessComputed() {
+      const requiredFields = [];
+      let filledCount = 0;
+
+      requiredFields.push({ key: 'date', label: 'Date' });
+      requiredFields.push({ key: 'declarationType', label: 'Declaration Type' });
+      requiredFields.push({ key: 'address', label: 'Address' });
+      requiredFields.push({ key: 'declarationName', label: 'Declaration Name' });
+      requiredFields.push({ key: 'price', label: 'Amount', validator: val => typeof val === 'number' && val > 0 });
+
+      if (this.form.declarationType === 'income') {
+        requiredFields.push({ key: 'incomeType', label: 'Income Type' });
+      }
+      if (this.form.declarationType === 'credit') {
+        requiredFields.push({ key: 'creditType', label: 'Credit Type' });
+      }
+      if (this.form.declarationType === 'deduction') {
+        requiredFields.push({ key: 'deductionType', label: 'Deduction Type' });
+      }
+
+      requiredFields.forEach(field => {
+        const value = this.form[field.key];
+        if (field.validator) {
+          if (field.validator(value)) {
+            filledCount++;
+          }
+        } else if (value && value.toString().trim() !== '') {
+          filledCount++;
+        }
+      });
+
+      if (requiredFields.length === 0) return { percentage: 0, filled: 0, total: 0 };
+      
+      const percentage = Math.round((filledCount / requiredFields.length) * 100);
+      return {
+        percentage,
+        filled: filledCount,
+        total: requiredFields.length
+      };
     }
   },
   methods: {
@@ -608,18 +660,16 @@ export default {
     },
     saveAndExit() {
       // Save the current form state and navigate away
-      if (this.validateForm(false)) {
-        this.form.status = FORM_STATUS.DRAFT;
-        this.storeFormWithStatus();
-        
-        // 显示成功信息，使用注入的toast服务
-        this.toast.success('Form saved as draft.');
-        
-        // 发出表单保存事件
-        this.$emit('form-saved', this.form);
-        
-        this.$router.push('/form-history');
-      }
+      this.form.status = FORM_STATUS.DRAFT;
+      this.storeFormWithStatus();
+      
+      // 显示成功信息，使用注入的toast服务
+      this.toast.success('Form saved as draft.');
+      
+      // 发出表单保存事件
+      this.$emit('form-saved', this.form);
+      
+      this.$router.push('/form-history');
     },
     storeFormWithStatus() {
       // Check if the form already has an ID, otherwise create a temporary one
@@ -937,7 +987,7 @@ export default {
     returnToHistory() {
       // Implement the logic to return to form history
       this.$router.push('/form-history');
-    }
+    },
   },
   mounted() {
     // Initialize date picker
@@ -1244,5 +1294,54 @@ textarea.form-control {
   .half-width {
     width: 100%;
   }
+}
+
+.progress-section {
+  margin-bottom: 1.2rem; /* Increased margin */
+  width: 100%;
+  max-width: 500px; /* Match form group width */
+  margin-left: auto; /* Center align with form fields */
+  margin-right: auto;
+}
+
+.progress-label {
+  font-size: 0.95em; /* Slightly larger label */
+  color: #444; /* Darker text */
+  margin-bottom: 0.4rem;
+  display: block;
+  font-weight: 500;
+}
+
+.progress-bar-container {
+  width: 100%;
+  background-color: #e9ecef; /* Lighter grey */
+  border-radius: 8px; /* More rounded */
+  height: 22px; /* Slightly taller */
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.08);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: #1F3A93; 
+  /* Optional: gradient for a nicer look */
+  /* background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent); */
+  /* background-size: 40px 40px; */
+  color: white;
+  text-align: center;
+  line-height: 22px; /* Match container height */
+  font-size: 0.85em;
+  font-weight: bold;
+  border-radius: 8px 0 0 8px; 
+  transition: width 0.4s ease-in-out;
+}
+
+.progress-bar-fill[style*="width: 100%"] {
+  border-radius: 8px; /* Full radius when 100% */
+}
+
+.progress-bar-fill[style*="width: 0%"] {
+  /* Hide text if 0% to avoid 0% text on empty bar */
+  color: transparent;
 }
 </style>
