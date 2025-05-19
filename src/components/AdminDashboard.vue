@@ -214,6 +214,7 @@
 
 <script>
 import { getAuditLogs, formatAction, getActionClass, exportAuditLogsToPDF, exportAuditLogsToCSV, convertToUTCTime } from '../services/auditService';
+import html2pdf from 'html2pdf.js';
 
 export default {
   name: 'AdminDashboard',
@@ -375,7 +376,6 @@ export default {
         // 准备查询参数，使用当前筛选条件
         const params = {};
         if (this.filters.action) params.action = this.filters.action;
-        // Convert dates to UTC for the export API call
         if (this.filters.fromDate) {
           params.from_date = convertToUTCTime(new Date(this.filters.fromDate));
         }
@@ -390,9 +390,6 @@ export default {
         
         if (response.success) {
           const logs = response.logs;
-          
-          // 导入html2pdf库
-          const html2pdf = require('html2pdf.js');
           
           // 创建HTML内容
           const element = document.createElement('div');

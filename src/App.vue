@@ -24,12 +24,10 @@
           <!-- 管理员专用菜单项 -->
           <template v-if="isAdminUser">
             <div class="admin-section">
-              <div class="admin-header">{{ user.username }}</div>
+              <div class="admin-header">{{ user.username }} (Admin)</div>
               <router-link class="menu-item admin-item" to="/home" @click="closeMenu">Home</router-link>
               <router-link class="menu-item admin-item" to="/admin/dashboard" @click="closeMenu">Audit Logs</router-link>
               <router-link class="menu-item admin-item" to="/issues" @click="closeMenu">System Issues</router-link>
-              <router-link class="menu-item admin-item" to="/admin/users" @click="closeMenu">User Management</router-link>
-              <router-link class="menu-item admin-item" to="/admin/settings" @click="closeMenu">System Settings</router-link>
               <div class="menu-item admin-item logout-item" @click="handleLogout">Logout</div>
             </div>
           </template>
